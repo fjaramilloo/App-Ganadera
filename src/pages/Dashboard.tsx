@@ -5,7 +5,7 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, CartesianGrid, Legend
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Skull, Home, MapPin } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Skull, Home, MapPin, Users } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -16,6 +16,7 @@ interface DashboardStats {
     gmpTotal: number;
     totalMuertosAno: number;
     produccionCarneHaAno: number;
+    cargaAnimal: number;
 }
 
 interface EvolucionItem {
@@ -32,7 +33,8 @@ export default function Dashboard() {
         gmpLevante: 0,
         gmpTotal: 0,
         totalMuertosAno: 0,
-        produccionCarneHaAno: 0
+        produccionCarneHaAno: 0,
+        cargaAnimal: 0
     });
     const [fincaInfo, setFincaInfo] = useState({
         nombre: '',
@@ -143,6 +145,9 @@ export default function Dashboard() {
                     totalMuertosAno: muertosAnio || 0,
                     produccionCarneHaAno: (finca?.area_aprovechable && finca.area_aprovechable > 0)
                         ? ((totalAnimales || 0) * (countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) * 30 : 0) * 12) / finca.area_aprovechable
+                        : 0,
+                    cargaAnimal: (finca?.area_aprovechable && finca.area_aprovechable > 0)
+                        ? (totalAnimales || 0) / finca.area_aprovechable
                         : 0
                 });
 
@@ -313,6 +318,16 @@ export default function Dashboard() {
                             <div>
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Carne / Ha / Año</div>
                                 <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(stats.produccionCarneHaAno)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg</span></div>
+                            </div>
+                        </div>
+
+                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px', border: '1px solid rgba(33, 150, 243, 0.3)' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(33, 150, 243, 0.15)', color: '#64B5F6' }}>
+                                <Users size={32} />
+                            </div>
+                            <div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Carga Animal Actual</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.cargaAnimal.toFixed(2)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>An/Ha</span></div>
                             </div>
                         </div>
                     </div>
