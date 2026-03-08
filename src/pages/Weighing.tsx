@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Save, PlusCircle, TrendingUp, History } from 'lucide-react';
+import { Search, Save, PlusCircle } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
 interface AnimalPreview {
