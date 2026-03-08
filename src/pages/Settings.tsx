@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2 } from 'lucide-react';
+import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home } from 'lucide-react';
 import Papa from 'papaparse';
 
 const parseFechaCol = (fechaStr: string) => {
@@ -36,6 +36,14 @@ export default function Settings() {
     const [propietarios, setPropietarios] = useState<{ id: string, nombre: string }[]>([]);
     const [nuevoPropietario, setNuevoPropietario] = useState('');
 
+    // Estados para Información de la Finca
+    const [farmInfo, setFarmInfo] = useState({
+        area_total: '',
+        area_aprovechable: '',
+        ubicacion: '',
+        proposito: ''
+    });
+
     // Filtrar fincas donde el usuario es administrador
     const fincasAdmin = userFincas.filter(f => f.rol === 'administrador' || isSuperAdmin);
 
@@ -63,10 +71,29 @@ export default function Settings() {
         if (!error && data) setPropietarios(data);
     };
 
+    const fetchFincaInfo = async () => {
+        if (!fincaId) return;
+        const { data, error } = await supabase
+            .from('fincas')
+            .select('area_total, area_aprovechable, ubicacion, proposito')
+            .eq('id', fincaId)
+            .single();
+
+        if (!error && data) {
+            setFarmInfo({
+                area_total: data.area_total?.toString() || '',
+                area_aprovechable: data.area_aprovechable?.toString() || '',
+                ubicacion: data.ubicacion || '',
+                proposito: data.proposito || ''
+            });
+        }
+    };
+
     useEffect(() => {
         if (!fincaId) return;
         fetchConfig();
         fetchPropietarios();
+        fetchFincaInfo();
 
         if (fincaId && selectedFincas.length === 0) {
             setSelectedFincas([fincaId]);
@@ -96,6 +123,32 @@ export default function Settings() {
 
         if (!error) {
             setMsjExito('Configuración guardada exitosamente.');
+        }
+
+        setLoading(false);
+    };
+
+    const guardarFincaInfo = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!fincaId) return;
+
+        setLoading(true);
+        setMsjExito('');
+
+        const { error } = await supabase
+            .from('fincas')
+            .update({
+                area_total: farmInfo.area_total ? parseFloat(farmInfo.area_total) : null,
+                area_aprovechable: farmInfo.area_aprovechable ? parseFloat(farmInfo.area_aprovechable) : null,
+                ubicacion: farmInfo.ubicacion,
+                proposito: farmInfo.proposito || null
+            })
+            .eq('id', fincaId);
+
+        if (!error) {
+            setMsjExito('Información de la finca actualizada correctamente.');
+        } else {
+            setMsjError('Error al actualizar la finca: ' + error.message);
         }
 
         setLoading(false);
@@ -328,6 +381,73 @@ export default function Settings() {
             {msjError && <div style={{ backgroundColor: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'pre-line' }}>{msjError}</div>}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
+
+                {/* Información de la Finca */}
+                <div className="card">
+                    <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Home size={20} /> Datos Técnicos de la Finca
+                    </h3>
+                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
+                        Registre el área y el propósito principal de su explotación ganadera.
+                    </p>
+
+                    <form onSubmit={guardarFincaInfo}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                            <div>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Maximize size={16} /> Área Total (Hectáreas)
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="Ej: 50.5"
+                                    value={farmInfo.area_total}
+                                    onChange={e => setFarmInfo({ ...farmInfo, area_total: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <CheckCircle2 size={16} /> Área Aprovechable (Ha)
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="Ej: 45.0"
+                                    value={farmInfo.area_aprovechable}
+                                    onChange={e => setFarmInfo({ ...farmInfo, area_aprovechable: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <MapPin size={16} /> Ubicación / Municipio
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Municipio, Departamento"
+                                    value={farmInfo.ubicacion}
+                                    onChange={e => setFarmInfo({ ...farmInfo, ubicacion: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label>Propósito de la Finca</label>
+                                <select
+                                    value={farmInfo.proposito}
+                                    onChange={e => setFarmInfo({ ...farmInfo, proposito: e.target.value })}
+                                >
+                                    <option value="">Seleccione un propósito...</option>
+                                    <option value="Doble propósito">Doble propósito</option>
+                                    <option value="producción de carne">Producción de carne</option>
+                                    <option value="Producción de leche">Producción de leche</option>
+                                    <option value="cría">Cría</option>
+                                    <option value="Levante">Levante</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary-dark)', border: '1px solid var(--primary)' }}>
+                            Actualizar Información de Finca
+                        </button>
+                    </form>
+                </div>
 
                 {/* Gestión de Usuarios */}
                 <div className="card">
