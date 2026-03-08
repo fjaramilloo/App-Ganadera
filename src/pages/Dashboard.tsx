@@ -15,6 +15,7 @@ interface DashboardStats {
     gmpLevante: number; // Ganancia Mensual Promedio en levante
     gmpTotal: number;
     totalMuertosAno: number;
+    produccionCarneHaAno: number;
 }
 
 interface EvolucionItem {
@@ -30,7 +31,8 @@ export default function Dashboard() {
         promedioLevanteMeses: 0,
         gmpLevante: 0,
         gmpTotal: 0,
-        totalMuertosAno: 0
+        totalMuertosAno: 0,
+        produccionCarneHaAno: 0
     });
     const [fincaInfo, setFincaInfo] = useState({
         nombre: '',
@@ -138,7 +140,10 @@ export default function Dashboard() {
                     promedioLevanteMeses: countLevante > 0 ? (totalDiasLevante / countLevante) / 30 : 0,
                     gmpLevante: countGdpLevante > 0 ? (gdpSumaLevante / countGdpLevante) * 30 : 0,
                     gmpTotal: countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) * 30 : 0,
-                    totalMuertosAno: muertosAnio || 0
+                    totalMuertosAno: muertosAnio || 0,
+                    produccionCarneHaAno: (finca?.area_aprovechable && finca.area_aprovechable > 0)
+                        ? ((totalAnimales || 0) * (countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) * 30 : 0) * 12) / finca.area_aprovechable
+                        : 0
                 });
 
                 // Agrupar pesajes por mes para gráfica de tendencia de GMP
@@ -298,6 +303,16 @@ export default function Dashboard() {
                             <div>
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Muertes en el Año</div>
                                 <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.totalMuertosAno}</div>
+                            </div>
+                        </div>
+
+                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px', border: '1px solid rgba(76, 175, 80, 0.3)' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(76, 175, 80, 0.15)', color: 'var(--primary-light)' }}>
+                                <TrendingUp size={32} />
+                            </div>
+                            <div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Carne / Ha / Año</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(stats.produccionCarneHaAno)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg</span></div>
                             </div>
                         </div>
                     </div>
