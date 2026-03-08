@@ -25,10 +25,10 @@ export default function Login() {
                 password,
             });
             if (error) {
-                setError("Usuario o contraseña incorrectos");
+                setError(error.message);
             }
-        } catch (err) {
-            setError("Ocurrió un error al intentar iniciar sesión");
+        } catch (err: any) {
+            setError(err.message || "Ocurrió un error al intentar iniciar sesión");
         } finally {
             setLoading(false);
         }
