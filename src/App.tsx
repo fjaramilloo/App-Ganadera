@@ -124,7 +124,7 @@ const AppRoutes = () => {
       <Route
         path="/configuracion"
         element={
-          <ProtectedRoute allowedRoles={['administrador']}>
+          <ProtectedRoute allowedRoles={['administrador', 'vaquero', 'observador']}>
             <Settings />
           </ProtectedRoute>
         }

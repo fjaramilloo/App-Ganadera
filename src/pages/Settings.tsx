@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home } from 'lucide-react';
+import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock } from 'lucide-react';
 import Papa from 'papaparse';
 
 const parseFechaCol = (fechaStr: string) => {
@@ -25,6 +25,10 @@ export default function Settings() {
     const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
     const [showExitoModal, setShowExitoModal] = useState(false);
+
+    // Estados para Cambio de Contraseña
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
 
     // Estados para creación de usuario
     const [newUserEmail, setNewUserEmail] = useState('');
@@ -142,6 +146,30 @@ export default function Settings() {
                 ? prev.filter(f => f !== id)
                 : [...prev, id]
         );
+    };
+
+    const handleUpdatePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newPassword !== confirmPassword) {
+            setMsjError('Las contraseñas no coinciden.');
+            return;
+        }
+        if (newPassword.length < 6) {
+            setMsjError('La contraseña debe tener al menos 6 caracteres.');
+            return;
+        }
+        setLoading(true);
+        setMsjError('');
+        setMsjExito('');
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        if (error) {
+            setMsjError('Error al actualizar contraseña: ' + error.message);
+        } else {
+            setMsjExito('Contraseña actualizada correctamente.');
+            setNewPassword('');
+            setConfirmPassword('');
+        }
+        setLoading(false);
     };
 
     const guardarConfiguracion = async (e: React.FormEvent) => {
@@ -472,14 +500,10 @@ export default function Settings() {
         });
     };
 
-    if (role !== 'administrador') {
-        return <div className="page-container text-center">Acceso denegado. Solo administradores pueden ver ajustes.</div>;
-    }
-
     return (
         <div className="page-container" style={{ maxWidth: '800px' }}>
             <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'left', marginBottom: '32px' }}>
-                <SettingsIcon size={32} /> Ajustes y Gestión de la Finca
+                <SettingsIcon size={32} /> {role === 'administrador' ? 'Ajustes y Gestión de la Finca' : 'Mi Perfil'}
             </h1>
 
             {/* Modal de Éxito para Cargas Masivas */}
@@ -510,8 +534,50 @@ export default function Settings() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
 
-                {/* Información de la Finca */}
+                {/* Cambio de Contraseña */}
                 <div className="card">
+                    <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Lock size={20} /> Seguridad de la Cuenta
+                    </h3>
+                    <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
+                        Actualiza tu contraseña para mantener tu cuenta segura.
+                    </p>
+
+                    <form onSubmit={handleUpdatePassword}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                            <div>
+                                <label>Nueva Contraseña</label>
+                                <input
+                                    type="password"
+                                    placeholder="Contraseña segura"
+                                    value={newPassword}
+                                    onChange={e => setNewPassword(e.target.value)}
+                                    required
+                                    disabled={loading}
+                                />
+                            </div>
+                            <div>
+                                <label>Confirmar Contraseña</label>
+                                <input
+                                    type="password"
+                                    placeholder="Repite la contraseña"
+                                    value={confirmPassword}
+                                    onChange={e => setConfirmPassword(e.target.value)}
+                                    required
+                                    disabled={loading}
+                                />
+                            </div>
+                        </div>
+                        <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--primary-dark)', border: '1px solid var(--primary)' }}>
+                            Actualizar Contraseña
+                        </button>
+                    </form>
+                </div>
+
+                {role === 'administrador' && (
+                    <>
+                        {/* Información de la Finca */}
+                        <div className="card">
                     <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Home size={20} /> Datos Técnicos de la Finca
                     </h3>
@@ -902,6 +968,8 @@ export default function Settings() {
                         </div>
                     </div>
                 </div>
+                </>
+                )}
             </div>
         </div>
     );
