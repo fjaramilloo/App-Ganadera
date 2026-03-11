@@ -45,6 +45,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const navItems: NavItem[] = [
         { to: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
         { to: '/inventario', label: 'Animales', icon: <ListChecks size={20} /> },
+        { to: '/rotaciones', label: 'Rotaciones', icon: <MapPin size={20} /> },
         { to: '/lluvias', label: 'Lluvias', icon: <CloudRain size={20} /> },
         ...(role !== 'observador'
             ? [
