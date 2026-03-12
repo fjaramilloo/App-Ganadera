@@ -601,9 +601,9 @@ export default function Potreradas() {
 
                                         <div className="glass-panel" style={{ padding: '20px', height: '350px' }}>
                                             <h4 style={{ margin: '0 0 20px 0', fontSize: '0.9rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GMP Promedio por Pesaje (kg/mes)</h4>
-                                            {detailData.history.length > 0 ? (
+                                            {detailData.history.length > 1 ? (
                                                 <ResponsiveContainer width="100%" height="85%">
-                                                    <LineChart data={detailData.history}>
+                                                    <LineChart data={detailData.history.filter((_, idx) => idx > 0)}>
                                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                                                         <XAxis dataKey="fecha" stroke="var(--text-muted)" fontSize={12} />
                                                         <YAxis stroke="var(--text-muted)" fontSize={12} />
