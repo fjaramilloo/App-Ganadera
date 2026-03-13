@@ -398,17 +398,31 @@ export default function Settings() {
             skipEmptyLines: true,
             complete: async (results) => {
                 try {
-                    const rows = results.data.map((row: any) => ({
-                        id_finca: fincaId,
-                        numero_chapeta: row.numero_chapeta?.toString().trim(),
-                        nombre_propietario: row.propietario || 'Sin Datos',
-                        especie: row.especie?.toLowerCase() || 'bovino',
-                        sexo: row.sexo?.toUpperCase() || 'M',
-                        etapa: row.etapa?.toLowerCase() || 'levante',
-                        fecha_ingreso: parseFechaCol(row.fecha_ingreso) || new Date().toISOString().split('T')[0],
-                        peso_ingreso: parseFloat(row.peso_ingreso) || 0,
-                        estado: 'activo'
-                    }));
+                    // 1. Obtener mapeos de potreradas y potreros
+                    const { data: pds } = await supabase.from('potreradas').select('id, nombre').eq('id_finca', fincaId);
+                    const { data: pts } = await supabase.from('potreros').select('id, nombre').eq('id_finca', fincaId);
+                    
+                    const mapPotreradas = new Map(pds?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
+                    const mapPotreros = new Map(pts?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
+
+                    const rows = results.data.map((row: any) => {
+                        const potreradaNombre = row.potrerada?.toString().toLowerCase().trim();
+                        const potreroNombre = row.potrero?.toString().toLowerCase().trim();
+
+                        return {
+                            id_finca: fincaId,
+                            numero_chapeta: row.numero_chapeta?.toString().trim(),
+                            nombre_propietario: row.propietario || 'Sin Datos',
+                            especie: row.especie?.toLowerCase() || 'bovino',
+                            sexo: row.sexo?.toUpperCase() || 'M',
+                            etapa: row.etapa?.toLowerCase() || 'levante',
+                            fecha_ingreso: parseFechaCol(row.fecha_ingreso) || new Date().toISOString().split('T')[0],
+                            peso_ingreso: parseFloat(row.peso_ingreso) || 0,
+                            id_potrerada: potreradaNombre ? mapPotreradas.get(potreradaNombre) : null,
+                            id_potrero_actual: potreroNombre ? mapPotreros.get(potreroNombre) : null,
+                            estado: 'activo'
+                        };
+                    });
 
                     const chapetas = rows.map((r: any) => r.numero_chapeta);
                     if (chapetas.some(c => !c)) throw new Error("Todas las filas deben tener un número de chapeta.");
@@ -435,12 +449,13 @@ export default function Settings() {
                             id_animal: anim.id,
                             peso: anim.peso_ingreso,
                             fecha: anim.fecha_ingreso,
-                            etapa: anim.etapa
+                            etapa: anim.etapa,
+                            id_potrero: anim.id_potrero_actual
                         }));
                         await supabase.from('registros_pesaje').insert(pesajes);
                     }
 
-                    setMsjExito(`¡Carga masiva de animales completada! ${rows.length} animales registrados con su peso inicial.`);
+                    setMsjExito(`¡Carga masiva de animales completada! ${rows.length} animales registrados con su peso inicial, potrerada y potrero.`);
                     setShowExitoModal(true);
                 } catch (err: any) {
                     setMsjError('Error en carga de animales: ' + err.message);
@@ -465,14 +480,22 @@ export default function Settings() {
             skipEmptyLines: true,
             complete: async (results) => {
                 try {
+                    // 1. Obtener mapeos necesarios
                     const { data: animalesData, error: animError } = await supabase
                         .from('animales')
-                        .select('id, numero_chapeta, etapa')
+                        .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso')
                         .eq('id_finca', fincaId);
 
                     if (animError || !animalesData) throw new Error("No se pudieron cargar los datos de los animales");
 
-                    const mapAnimales = new Map(animalesData.map(a => [a.numero_chapeta, { id: a.id, etapa: a.etapa }]));
+                    const { data: pts } = await supabase.from('potreros').select('id, nombre').eq('id_finca', fincaId);
+                    const mapPotreros = new Map(pts?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
+
+                    // Incluir fecha_ingreso y peso_ingreso para poder comparar luego
+                    const mapAnimales = new Map(animalesData.map(a => [
+                        a.numero_chapeta,
+                        { id: a.id, etapa: a.etapa, fecha_ingreso: a.fecha_ingreso, peso_ingreso: a.peso_ingreso }
+                    ]));
 
                     const records: any[] = [];
                     const errores: string[] = [];
@@ -486,6 +509,7 @@ export default function Settings() {
 
                         const peso = parseFloat(row.peso);
                         const fecha = parseFechaCol(row.fecha) || new Date().toISOString().split('T')[0];
+                        const potreroNombre = row.potrero?.toString().toLowerCase().trim();
 
                         if (isNaN(peso) || peso <= 0) {
                             errores.push(`Fila ${index + 2}: Peso inválido.`);
@@ -496,7 +520,8 @@ export default function Settings() {
                             id_animal: anim.id,
                             peso,
                             fecha,
-                            etapa: anim.etapa
+                            etapa: anim.etapa,
+                            id_potrero: potreroNombre ? mapPotreros.get(potreroNombre) : null
                         });
                     });
 
@@ -504,10 +529,40 @@ export default function Settings() {
                         throw new Error("El archivo no contenía datos válidos o compatibles con los animales de esta finca.");
                     }
 
+                    // 2. Detectar pesajes con fecha anterior a fecha_ingreso del animal
+                    //    Para cada animal afectado, guardamos la fecha/peso más antiguo del CSV
+                    const ingresoAActualizar: Map<string, { fecha: string; peso: number }> = new Map();
+
+                    records.forEach(r => {
+                        const animInfo = animalesData.find(a => a.id === r.id_animal);
+                        if (!animInfo) return;
+                        if (r.fecha < animInfo.fecha_ingreso) {
+                            const existente = ingresoAActualizar.get(r.id_animal);
+                            if (!existente || r.fecha < existente.fecha) {
+                                ingresoAActualizar.set(r.id_animal, { fecha: r.fecha, peso: r.peso });
+                            }
+                        }
+                    });
+
+                    // Actualizar animales con fecha/peso de ingreso más antiguos
+                    let animalesActualizados = 0;
+                    for (const [idAnimal, nuevoDato] of ingresoAActualizar.entries()) {
+                        const { error: updErr } = await supabase
+                            .from('animales')
+                            .update({ fecha_ingreso: nuevoDato.fecha, peso_ingreso: nuevoDato.peso })
+                            .eq('id', idAnimal);
+                        if (!updErr) animalesActualizados++;
+                    }
+
+                    // 3. Insertar los pesajes
                     const { error: insertError } = await supabase.from('registros_pesaje').insert(records);
                     if (insertError) throw insertError;
 
-                    setMsjExito(`¡Carga exitosa! Se registraron ${records.length} seguimientos de pesaje.`);
+                    let msg = `¡Carga exitosa! Se registraron ${records.length} seguimientos de pesaje.`;
+                    if (animalesActualizados > 0) {
+                        msg += ` Se actualizó automáticamente la fecha y peso de ingreso de ${animalesActualizados} animal(es) porque se encontraron pesajes anteriores a su ingreso registrado.`;
+                    }
+                    setMsjExito(msg);
                     setShowExitoModal(true);
                     if (errores.length > 0) {
                         setMsjError(`Se omitieron algunos registros:\n${errores.join('\n')}`);

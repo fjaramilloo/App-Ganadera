@@ -176,7 +176,7 @@ DECLARE
 BEGIN
     SELECT * INTO registro_anterior
     FROM public.registros_pesaje
-    WHERE id_animal = NEW.id_animal AND fecha < NEW.fecha
+    WHERE id_animal = NEW.id_animal AND fecha < NEW.fecha AND id IS DISTINCT FROM NEW.id
     ORDER BY fecha DESC
     LIMIT 1;
 
@@ -203,9 +203,46 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS trigger_calcular_gdp ON registros_pesaje;
 CREATE TRIGGER trigger_calcular_gdp
-BEFORE INSERT ON registros_pesaje
+BEFORE INSERT OR UPDATE OF peso, fecha ON registros_pesaje
 FOR EACH ROW
 EXECUTE FUNCTION calcular_gdp_al_pesar();
+
+
+CREATE OR REPLACE FUNCTION recalcular_gdp_posterior()
+RETURNS TRIGGER AS $$
+DECLARE
+    registro_siguiente RECORD;
+    dias_transcurridos INTEGER;
+BEGIN
+    -- Encontrar el registro mediatamente posterior en fecha
+    SELECT * INTO registro_siguiente
+    FROM public.registros_pesaje
+    WHERE id_animal = NEW.id_animal AND fecha > NEW.fecha AND id IS DISTINCT FROM NEW.id
+    ORDER BY fecha ASC
+    LIMIT 1;
+
+    IF FOUND THEN
+        dias_transcurridos := registro_siguiente.fecha - NEW.fecha;
+        IF dias_transcurridos > 0 THEN
+            UPDATE public.registros_pesaje
+            SET gdp_calculada = ROUND(((registro_siguiente.peso - NEW.peso) / dias_transcurridos)::numeric, 3)
+            WHERE id = registro_siguiente.id;
+        ELSE
+            UPDATE public.registros_pesaje
+            SET gdp_calculada = 0
+            WHERE id = registro_siguiente.id;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trigger_recalcular_gdp_posterior ON registros_pesaje;
+CREATE TRIGGER trigger_recalcular_gdp_posterior
+AFTER INSERT OR UPDATE OF peso, fecha ON registros_pesaje
+FOR EACH ROW
+EXECUTE FUNCTION recalcular_gdp_posterior();
 
 
 -- RLs (Row Level Security) - Políticas de seguridad
