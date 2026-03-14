@@ -19,7 +19,8 @@ import {
     Briefcase,
     Info,
     Users,
-    ShoppingBag
+    ShoppingBag,
+    FileText
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -220,6 +221,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     <NavLink to="/venta" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                         <span className="sidebar-icon"><Tag size={20} /></span>
                                         <span className="sidebar-label">Venta</span>
+                                    </NavLink>
+                                    <NavLink to="/historial-ventas" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                        <span className="sidebar-icon"><FileText size={20} /></span>
+                                        <span className="sidebar-label">Historial Ventas</span>
                                     </NavLink>
                                     {hayMercado && (
                                         <NavLink to="/mercado" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`} style={{ position: 'relative' }}>
