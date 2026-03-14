@@ -262,7 +262,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                     <span className="sidebar-icon"><MapPin size={20} /></span>
                                     <span className="sidebar-label">Rotaciones</span>
                                 </NavLink>
-                                {role === 'administrador' && (
+                                 {(role === 'administrador' || role === 'vaquero') && (
                                     <NavLink to="/potreradas" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
                                         <span className="sidebar-icon"><Users size={20} /></span>
                                         <span className="sidebar-label">Potreradas</span>

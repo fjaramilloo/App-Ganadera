@@ -33,7 +33,7 @@ interface ChartData {
 }
 
 export default function Potreradas() {
-    const { fincaId } = useAuth();
+    const { fincaId, role } = useAuth();
     const [potreradas, setPotreradas] = useState<Potrerada[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingPotrerada, setEditingPotrerada] = useState<Potrerada | null>(null);
@@ -354,7 +354,7 @@ export default function Potreradas() {
                                 <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</th>
                                 <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GMP Promedio</th>
                                 <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Días Pesaje</th>
-                                <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acciones</th>
+                                {role === 'administrador' && <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acciones</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -400,26 +400,28 @@ export default function Potreradas() {
                                             {Math.round(p.diasPesajePromedio)} d
                                         </div>
                                     </td>
-                                    <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                            <button 
-                                                onClick={() => setManagingPotrerada(p)}
-                                                className="btn-icon"
-                                                title="Gestionar Animales"
-                                                style={{ background: 'rgba(52, 152, 219, 0.1)', color: '#3498db', border: 'none', padding: '8px', borderRadius: '8px' }}
-                                            >
-                                                <Users size={16} />
-                                            </button>
-                                            <button 
-                                                onClick={() => handleEditClick(p)}
-                                                className="btn-icon"
-                                                title="Editar Nombre"
-                                                style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: 'none', padding: '8px', borderRadius: '8px' }}
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
+                                    {role === 'administrador' && (
+                                        <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                <button 
+                                                    onClick={() => setManagingPotrerada(p)}
+                                                    className="btn-icon"
+                                                    title="Gestionar Animales"
+                                                    style={{ background: 'rgba(52, 152, 219, 0.1)', color: '#3498db', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                                >
+                                                    <Users size={16} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleEditClick(p)}
+                                                    className="btn-icon"
+                                                    title="Editar Nombre"
+                                                    style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', border: 'none', padding: '8px', borderRadius: '8px' }}
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>
