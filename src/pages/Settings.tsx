@@ -44,6 +44,10 @@ export default function Settings() {
     const [proveedores, setProveedores] = useState<{ id: string, nombre: string }[]>([]);
     const [nuevoProveedor, setNuevoProveedor] = useState('');
 
+    // Estados para Compradores
+    const [compradores, setCompradores] = useState<{ id: string, nombre: string }[]>([]);
+    const [nuevoComprador, setNuevoComprador] = useState('');
+
     // Estados para Potreradas
     const [potreradas, setPotreradas] = useState<{ id: string, nombre: string, etapa: string }[]>([]);
     const [nuevaPotreradaNombre, setNuevaPotreradaNombre] = useState('');
@@ -99,6 +103,17 @@ export default function Settings() {
         if (!error && data) setProveedores(data);
     };
 
+    const fetchCompradores = async () => {
+        if (!fincaId) return;
+        const { data, error } = await supabase
+            .from('compradores')
+            .select('id, nombre')
+            .eq('id_finca', fincaId)
+            .order('nombre');
+
+        if (!error && data) setCompradores(data);
+    };
+
     const fetchPotreradas = async () => {
         if (!fincaId) return;
         const { data, error } = await supabase
@@ -145,6 +160,7 @@ export default function Settings() {
         fetchConfig();
         fetchPropietarios();
         fetchProveedores();
+        fetchCompradores();
         fetchPotreradas();
         fetchFincaInfo();
 
@@ -340,6 +356,43 @@ export default function Settings() {
             if (error) throw error;
             fetchProveedores();
             setMsjExito('Proveedor eliminado.');
+        } catch (err: any) {
+            setMsjError('Error al eliminar: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAddComprador = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!fincaId || !nuevoComprador.trim()) return;
+
+        setLoading(true);
+        try {
+            const { error } = await supabase
+                .from('compradores')
+                .insert({ id_finca: fincaId, nombre: nuevoComprador.trim() });
+
+            if (error) throw error;
+
+            setNuevoComprador('');
+            fetchCompradores();
+            setMsjExito('Comprador agregado correctamente.');
+        } catch (err: any) {
+            setMsjError('Error al agregar comprador: ' + (err.code === '23505' ? 'Ya existe un comprador con ese nombre.' : err.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const removeComprador = async (id: string) => {
+        if (!confirm('¿Está seguro de eliminar este comprador?')) return;
+        setLoading(true);
+        try {
+            const { error } = await supabase.from('compradores').delete().eq('id', id);
+            if (error) throw error;
+            fetchCompradores();
+            setMsjExito('Comprador eliminado.');
         } catch (err: any) {
             setMsjError('Error al eliminar: ' + err.message);
         } finally {
@@ -980,6 +1033,60 @@ export default function Settings() {
                                             <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{p.nombre}</span>
                                             <button
                                                 onClick={() => removeProveedor(p.id)}
+                                                style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.3)', width: 'auto' }}
+                                                onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
+                                                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Gestión de Compradores */}
+                        <div className="card">
+                            <h3 style={{ marginBottom: '16px', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Users size={20} /> Compradores de Ganado
+                            </h3>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9em' }}>
+                                Defina los compradores autorizados para sus ventas.
+                            </p>
+
+                            <form onSubmit={handleAddComprador} style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Nombre del Comprador"
+                                    value={nuevoComprador}
+                                    onChange={e => setNuevoComprador(e.target.value)}
+                                    style={{ marginBottom: 0 }}
+                                    disabled={loading}
+                                />
+                                <button type="submit" style={{ width: 'auto' }} disabled={loading || !nuevoComprador.trim()}>
+                                    <Plus size={18} /> Agregar
+                                </button>
+                            </form>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+                                {compradores.length === 0 ? (
+                                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: 'var(--text-muted)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '8px' }}>
+                                        No hay compradores definidos para esta finca.
+                                    </div>
+                                ) : (
+                                    compradores.map(c => (
+                                        <div key={c.id} style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            padding: '10px 14px',
+                                            backgroundColor: 'rgba(255,255,255,0.03)',
+                                            borderRadius: '8px',
+                                            border: '1px solid rgba(255,255,255,0.05)'
+                                        }}>
+                                            <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{c.nombre}</span>
+                                            <button
+                                                onClick={() => removeComprador(c.id)}
                                                 style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.3)', width: 'auto' }}
                                                 onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
                                                 onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
