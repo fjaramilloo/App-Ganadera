@@ -5,9 +5,10 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, CartesianGrid, Legend, BarChart, Bar
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Skull, Home, MapPin } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Home, MapPin } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 interface DashboardStats {
     totalAnimales: number;
@@ -35,7 +36,12 @@ interface LluviaItem {
 
 export default function Dashboard() {
     const { fincaId } = useAuth();
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
+    const [muertesModalVisible, setMuertesModalVisible] = useState(false);
+    const [muertesData, setMuertesData] = useState<any[]>([]);
+    const [loadingMuertes, setLoadingMuertes] = useState(false);
+
     const [stats, setStats] = useState<DashboardStats>({
         totalAnimales: 0,
         promedioLevanteMeses: 0,
@@ -57,6 +63,28 @@ export default function Dashboard() {
     });
     const [evolucionGmp, setEvolucionGmp] = useState<EvolucionItem[]>([]);
     const [evolucionLluvia, setEvolucionLluvia] = useState<LluviaItem[]>([]);
+
+    const handleOpenMuertes = async () => {
+        setMuertesModalVisible(true);
+        if (muertesData.length === 0) {
+            setLoadingMuertes(true);
+            const { data } = await supabase
+                .from('animales')
+                .select('chapeta, fecha_muerte, observacion')
+                .eq('id_finca', fincaId)
+                .eq('estado', 'muerto')
+                .order('fecha_muerte', { ascending: false });
+            if (data) setMuertesData(data);
+            setLoadingMuertes(false);
+        }
+    };
+
+    const muertesByYear = muertesData.reduce((acc, animal) => {
+        const year = animal.fecha_muerte ? animal.fecha_muerte.substring(0, 4) : 'Desconocido';
+        if (!acc[year]) acc[year] = [];
+        acc[year].push(animal);
+        return acc;
+    }, {} as Record<string, any[]>);
 
     useEffect(() => {
         async function fetchDashboardData() {
@@ -356,17 +384,44 @@ export default function Dashboard() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                            <div style={{
-                                background: 'rgba(255,255,255,0.03)',
-                                padding: '20px 32px',
-                                borderRadius: '16px',
-                                border: '1px solid rgba(255,255,255,0.05)',
-                                textAlign: 'center',
-                                minWidth: '150px'
-                            }}>
+                            <div 
+                                onClick={() => navigate('/animales')}
+                                style={{
+                                    background: 'rgba(255,255,255,0.03)',
+                                    padding: '20px 32px',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255,255,255,0.05)',
+                                    textAlign: 'center',
+                                    minWidth: '150px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                                onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                            >
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Inventario Actual</div>
                                 <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
                                     {stats.totalAnimales} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Cabezas</span>
+                                </div>
+                            </div>
+                            <div 
+                                onClick={handleOpenMuertes}
+                                style={{
+                                    background: 'rgba(255,100,100,0.05)',
+                                    padding: '20px 32px',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255,100,100,0.1)',
+                                    textAlign: 'center',
+                                    minWidth: '150px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,100,100,0.15)'}
+                                onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,100,100,0.05)'}
+                            >
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Muertes Año</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--error)' }}>
+                                    {stats.totalMuertosAno}
                                 </div>
                             </div>
                             <div style={{
@@ -426,16 +481,6 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(33, 150, 243, 0.15)', color: '#64B5F6' }}>
-                                <Activity size={32} />
-                            </div>
-                            <div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>GMP Ciclo Total</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.gmpTotal.toFixed(1)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg/mes</span></div>
-                                <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '4px' }}>GDP: {(stats.gmpTotal / 30).toFixed(3)} kg/día</div>
-                            </div>
-                        </div>
 
                         <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
                             <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(156, 39, 176, 0.15)', color: '#BA68C8' }}>
@@ -453,7 +498,7 @@ export default function Dashboard() {
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
                             <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.05)', color: 'white' }}>
                                 <Scale size={32} />
@@ -462,22 +507,12 @@ export default function Dashboard() {
                                 <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Pesos Promedio</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Entrada</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{Math.round(stats.pesoPromedioEntrada)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{Math.round(stats.pesoPromedioEntrada)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Salida / Venta</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{Math.round(stats.pesoPromedioSalida)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', whiteSpace: 'nowrap' }}>{Math.round(stats.pesoPromedioSalida)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
                                 </div>
-                            </div>
-                        </div>
-
-                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)' }}>
-                                <Skull size={32} />
-                            </div>
-                            <div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Muertes en el Año</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.totalMuertosAno}</div>
                             </div>
                         </div>
                     </div>
@@ -566,6 +601,71 @@ export default function Dashboard() {
                             </div>
                         </div>
                     </div>
+
+                    {/* Modal de Muertes */}
+                    {muertesModalVisible && (
+                        <div style={{
+                            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                            backgroundColor: 'rgba(0,0,0,0.7)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            zIndex: 1000, padding: '20px'
+                        }} onClick={() => setMuertesModalVisible(false)}>
+                            <div style={{
+                                background: 'var(--bg-card)',
+                                padding: '32px',
+                                borderRadius: '16px',
+                                width: '100%',
+                                maxWidth: '600px',
+                                maxHeight: '80vh',
+                                display: 'flex', flexDirection: 'column',
+                                boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+                            }} onClick={e => e.stopPropagation()}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                                    <h2 style={{ margin: 0, color: 'white' }}>Registro Histórico de Muertes</h2>
+                                    <button onClick={() => setMuertesModalVisible(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem', padding: '0 8px' }}>&times;</button>
+                                </div>
+                                <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
+                                    {loadingMuertes ? (
+                                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--primary-light)' }}>Cargando registros...</div>
+                                    ) : muertesData.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No hay muertes registradas.</div>
+                                    ) : (
+                                        Object.keys(muertesByYear).sort((a,b) => b.localeCompare(a)).map(year => (
+                                            <div key={year} style={{ marginBottom: '24px' }}>
+                                                <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px', color: 'var(--error)', marginTop: 0 }}>
+                                                    {year} <span style={{fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal'}}>({muertesByYear[year].length} animales)</span>
+                                                </h3>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    {muertesByYear[year].map((m: any, idx: number) => (
+                                                        <div key={idx} style={{ 
+                                                            background: 'rgba(255,255,255,0.03)', 
+                                                            padding: '16px', 
+                                                            borderRadius: '12px', 
+                                                            border: '1px solid rgba(255,255,255,0.05)',
+                                                            display: 'flex', 
+                                                            justifyContent: 'space-between', 
+                                                            alignItems: 'flex-start',
+                                                            gap: '16px'
+                                                        }}>
+                                                            <div>
+                                                                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'white' }}>Chapeta: {m.chapeta || 'N/A'}</div>
+                                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                                                    {m.fecha_muerte ? format(new Date(m.fecha_muerte), "d 'de' MMMM", { locale: es }) : 'Sin fecha'}
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '50%', textAlign: 'right', fontStyle: 'italic', wordBreak: 'break-word' }}>
+                                                                {m.observacion || 'Sin observaciones detalladas'}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </>
             )}
         </div>
