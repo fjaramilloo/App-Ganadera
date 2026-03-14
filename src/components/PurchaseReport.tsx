@@ -37,10 +37,7 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
         promedio: porMarca[marca].kilos / porMarca[marca].count
     }));
 
-    // Dividir animales para tabla de 2 columnas
-    const half = Math.ceil(animales.length / 2);
-    const leftCol = animales.slice(0, half);
-    const rightCol = animales.slice(half);
+    const promedioPeso = totalAnimales > 0 ? totalKilos / totalAnimales : 0;
 
     const handlePrint = () => {
         window.print();
@@ -97,63 +94,86 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
                     color: black;
                 }
                 .report-subtitle {
-                    font-size: 14px;
+                    font-size: 13px;
+                    color: #666;
                     margin-bottom: 15px;
-                }
-                .report-tables-wrapper {
                     display: flex;
-                    width: 100%;
-                    border: 1px solid #333;
+                    justify-content: center;
+                    gap: 15px;
                 }
-                .report-table {
-                    width: 50%;
-                    border-collapse: collapse;
-                    font-size: 12px;
-                }
-                .report-table th, .report-table td {
-                    border: 1px solid #333;
-                    padding: 4px 8px;
-                    text-align: center;
-                    height: 24px;
-                }
-                .report-table.left {
-                    border: none;
-                }
-                .report-table.right {
-                    border: none;
-                    border-left: 1px solid #333;
-                }
-                .report-table th {
-                    background-color: #f2f2f2;
-                    font-weight: 700;
-                }
-                .report-summary-box {
-                    margin-top: 20px;
+                .report-wrapper {
                     display: flex;
-                    width: 100%;
-                    border: 1px solid #333;
+                    flex-direction: column;
+                    gap: 15px;
+                }
+                .summary-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 10px;
+                    margin-bottom: 20px;
                 }
                 .summary-item {
-                    flex: 1;
-                    padding: 8px 12px;
-                    border-right: 1px solid #333;
-                    font-size: 14px;
+                    background: #f8f9fa;
+                    border: 1px solid #eee;
+                    border-radius: 6px;
+                    padding: 12px;
+                    text-align: center;
                 }
-                .summary-item:last-child { border-right: none; }
-                .summary-label { font-weight: 700; }
+                .summary-label { 
+                    display: block;
+                    font-size: 11px;
+                    text-transform: uppercase;
+                    color: #666;
+                    margin-bottom: 4px;
+                }
+                .summary-value {
+                    font-size: 16px;
+                    font-weight: 700;
+                    color: #333;
+                }
+                .report-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 11px;
+                    margin-bottom: 20px;
+                }
+                .report-table th, .report-table td {
+                    border: 1px solid #ddd;
+                    padding: 6px 8px;
+                    text-align: left;
+                    border-bottom: 1px solid #ddd;
+                }
+                .report-table th {
+                    background-color: #f8f9fa;
+                    font-weight: 600;
+                    color: #555;
+                    border-bottom: 2px solid #ddd;
+                }
+                .report-table tbody tr:nth-child(even) {
+                    background-color: #fafafa;
+                }
                 .report-footer-table {
                     width: 100%;
-                    margin-top: 10px;
                     border-collapse: collapse;
-                    font-size: 12px;
+                    font-size: 11px;
+                    margin-top: 5px;
                 }
                 .report-footer-table th, .report-footer-table td {
-                    border: 1px solid #333;
-                    padding: 6px 10px;
+                    border: 1px solid #ddd;
+                    padding: 8px;
                     text-align: center;
                 }
                 .report-footer-table th {
-                    background-color: #f2f2f2;
+                    background-color: #f8f9fa;
+                    font-weight: 600;
+                    color: #555;
+                    border-bottom: 2px solid #ddd;
+                }
+                .table-title {
+                    font-size: 14px;
+                    font-weight: 700;
+                    margin-bottom: 8px;
+                    color: #333;
                 }
                 `}
             </style>
@@ -169,84 +189,67 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, on
                 </div>
 
                 <div className="report-header">
-                    <div className="report-title">Ingreso ganado {fincaNombre}</div>
+                    <div className="report-title">Ingreso Ganado - {fincaNombre}</div>
                     <div className="report-subtitle">
-                        <strong>Fecha ingreso:</strong> {format(new Date(fechaIngreso + 'T12:00:00'), 'dd/MM/yyyy')}
+                        <span><strong>Fecha Informe:</strong> {format(new Date(), 'dd/MM/yyyy')}</span>
+                        <span><strong>Fecha Ingreso Lote:</strong> {format(new Date(fechaIngreso + 'T12:00:00'), 'dd/MM/yyyy')}</span>
                     </div>
                 </div>
 
-                <div className="report-tables-wrapper">
-                    <table className="report-table left">
-                        <thead>
-                            <tr>
-                                <th>Chapeta</th>
-                                <th>Marca</th>
-                                <th>Peso</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {leftCol.map((a, i) => (
-                                <tr key={i}>
-                                    <td>{a.numero_chapeta}</td>
-                                    <td>{a.propietario}</td>
-                                    <td>{a.peso_ingreso}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    <table className="report-table right">
-                        <thead>
-                            <tr>
-                                <th>Chapeta</th>
-                                <th>Marca</th>
-                                <th>Peso</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rightCol.map((a, i) => (
-                                <tr key={i}>
-                                    <td>{a.numero_chapeta}</td>
-                                    <td>{a.propietario}</td>
-                                    <td>{a.peso_ingreso}</td>
-                                </tr>
-                            ))}
-                            {/* Relleno si la columna derecha es más corta que la izquierda */}
-                            {rightCol.length < leftCol.length && (
-                                <tr>
-                                    <td>&nbsp;</td>
-                                    <td>&nbsp;</td>
-                                    <td>&nbsp;</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="report-summary-box">
+                <div className="summary-grid">
                     <div className="summary-item">
-                        <span className="summary-label">Total Kilos:</span> {totalKilos.toLocaleString()}
+                        <span className="summary-label">Total Animales</span>
+                        <div className="summary-value">{totalAnimales} <span style={{fontSize: '0.8em', fontWeight: 'normal', color: '#888'}}>Cabezas</span></div>
                     </div>
                     <div className="summary-item">
-                        <span className="summary-label">Total Animales:</span> {totalAnimales}
+                        <span className="summary-label">Peso Total</span>
+                        <div className="summary-value">{totalKilos.toLocaleString()} <span style={{fontSize: '0.8em', fontWeight: 'normal', color: '#888'}}>kg</span></div>
+                    </div>
+                    <div className="summary-item">
+                        <span className="summary-label">Peso Promedio</span>
+                        <div className="summary-value">{promedioPeso.toFixed(1)} <span style={{fontSize: '0.8em', fontWeight: 'normal', color: '#888'}}>kg</span></div>
                     </div>
                 </div>
 
+                <div className="table-title">Detalle de Ingresos</div>
+                <table className="report-table">
+                    <thead>
+                        <tr>
+                            <th style={{ width: '40px' }}>#</th>
+                            <th>Chapeta</th>
+                            <th>Peso de Ingreso</th>
+                            <th>Marca / Propietario</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {animales.map((a, i) => (
+                            <tr key={i}>
+                                <td style={{ color: '#888', fontSize: '10px' }}>{i + 1}</td>
+                                <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
+                                <td style={{ fontWeight: '700' }}>{a.peso_ingreso} kg</td>
+                                <td style={{ color: '#666' }}>{a.propietario}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+
+                <div className="table-title" style={{ marginTop: '20px' }}>Resumen por Marca</div>
                 <table className="report-footer-table">
                     <thead>
                         <tr>
-                            <th>Propietario</th>
+                            <th style={{ textAlign: 'left' }}>Propietario</th>
                             <th>Nro Animales</th>
-                            <th>Kilos total</th>
-                            <th>Peso promedio</th>
+                            <th>Kilos Total</th>
+                            <th>Peso Promedio</th>
                         </tr>
                     </thead>
                     <tbody>
                         {resumenMarcas.map((r, i) => (
                             <tr key={i}>
-                                <td>{r.marca}</td>
+                                <td style={{ textAlign: 'left', fontWeight: '600' }}>{r.marca}</td>
                                 <td>{r.count}</td>
-                                <td>{r.kilos.toLocaleString()}</td>
-                                <td>{Math.round(r.promedio)}</td>
+                                <td>{r.kilos.toLocaleString()} kg</td>
+                                <td style={{ fontWeight: '700' }}>{Math.round(r.promedio)} kg</td>
                             </tr>
                         ))}
                     </tbody>

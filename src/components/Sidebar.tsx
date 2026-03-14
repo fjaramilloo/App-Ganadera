@@ -222,10 +222,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                         <span className="sidebar-icon"><Tag size={20} /></span>
                                         <span className="sidebar-label">Venta</span>
                                     </NavLink>
-                                    <NavLink to="/historial-ventas" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
-                                        <span className="sidebar-icon"><FileText size={20} /></span>
-                                        <span className="sidebar-label">Historial Ventas</span>
-                                    </NavLink>
                                     {hayMercado && (
                                         <NavLink to="/mercado" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`} style={{ position: 'relative' }}>
                                             <span className="sidebar-icon"><ShoppingBag size={20} /></span>
@@ -273,6 +269,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                         <span className="sidebar-label">Potreradas</span>
                                     </NavLink>
                                 )}
+                                <NavLink to="/historial-ventas" onClick={() => { if (window.innerWidth <= 1024) onClose(); }} className={({ isActive }) => `sidebar-link${isActive ? ' sidebar-link--active' : ''}`}>
+                                    <span className="sidebar-icon"><FileText size={20} /></span>
+                                    <span className="sidebar-label">Historial Ventas</span>
+                                </NavLink>
                             </div>
                         )}
                     </div>

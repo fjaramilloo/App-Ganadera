@@ -302,14 +302,18 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                 <th>GMP</th>
                                 <th>Marca</th>
                                 <th>Potrero</th>
-                                <th>T. Finca</th>
-                                <th>T. Ceba</th>
+                                <th>Meses Finca</th>
+                                <th>Meses Ceba</th>
                             </tr>
                         </thead>
                         <tbody>
                             {animales.map((a, i) => {
-                                const diasFinca = a.fecha_ingreso ? calcularDias(a.fecha_ingreso, fechaVenta) : '-';
-                                const diasCeba = a.fecha_inicio_ceba ? calcularDias(a.fecha_inicio_ceba, fechaVenta) : '-';
+                                const diasFinca = a.fecha_ingreso ? calcularDias(a.fecha_ingreso, fechaVenta) : null;
+                                const diasCeba = a.fecha_inicio_ceba ? calcularDias(a.fecha_inicio_ceba, fechaVenta) : null;
+                                
+                                const mesesFinca = diasFinca !== null ? (diasFinca / 30).toFixed(1) : '-';
+                                const mesesCeba = diasCeba !== null ? (diasCeba / 30).toFixed(1) : '-';
+                                
                                 return (
                                     <tr key={i}>
                                         <td style={{ color: '#888', fontSize: '10px' }}>{i + 1}</td>
@@ -320,8 +324,8 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                         </td>
                                         <td style={{ color: '#666' }}>{a.propietario}</td>
                                         <td style={{ color: '#666' }}>{a.potreroNombre || '-'}</td>
-                                        <td>{diasFinca} d</td>
-                                        <td>{diasCeba !== '-' ? `${diasCeba} d` : '-'}</td>
+                                        <td>{mesesFinca} m</td>
+                                        <td>{mesesCeba !== '-' ? `${mesesCeba} m` : '-'}</td>
                                     </tr>
                                 );
                             })}
@@ -343,12 +347,12 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                         <div className="summary-value" style={{ color: 'var(--success)' }}>{promedioGMP.toFixed(2)} kg</div>
                     </div>
                     <div className="summary-item">
-                        <span className="summary-label">Días Finca (Prom.)</span>
-                        <div className="summary-value">{promedioDiasFinca} d</div>
+                        <span className="summary-label">Meses Finca (Prom.)</span>
+                        <div className="summary-value">{(promedioDiasFinca / 30).toFixed(1)} m</div>
                     </div>
                     <div className="summary-item">
-                        <span className="summary-label">Días Ceba (Prom.)</span>
-                        <div className="summary-value">{promedioDiasCeba || '-'}</div>
+                        <span className="summary-label">Meses Ceba (Prom.)</span>
+                        <div className="summary-value">{promedioDiasCeba ? (promedioDiasCeba / 30).toFixed(1) + ' m' : '-'}</div>
                     </div>
                     <div className="summary-item" style={{ borderRight: 'none' }}>
                         <span className="summary-label">Peso Total</span>

@@ -5,7 +5,7 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, CartesianGrid, Legend, BarChart, Bar
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Skull, Home, MapPin, Users } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Skull, Home, MapPin } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -13,15 +13,14 @@ interface DashboardStats {
     totalAnimales: number;
     promedioLevanteMeses: number;
     gmpLevante: number; 
+    promedioCebaMeses: number;
+    gmpCeba: number;
     gmpTotal: number;
     totalMuertosAno: number;
     produccionCarneHaAno: number;
     cargaAnimal: number;
     pesoPromedioEntrada: number;
     pesoPromedioSalida: number;
-    kgGanadosFinca: number;
-    mesesPromedioFinca: number;
-    ingresosHaAno: number;
 }
 
 interface EvolucionItem {
@@ -41,15 +40,14 @@ export default function Dashboard() {
         totalAnimales: 0,
         promedioLevanteMeses: 0,
         gmpLevante: 0,
+        promedioCebaMeses: 0,
+        gmpCeba: 0,
         gmpTotal: 0,
         totalMuertosAno: 0,
         produccionCarneHaAno: 0,
         cargaAnimal: 0,
         pesoPromedioEntrada: 360,
-        pesoPromedioSalida: 540,
-        kgGanadosFinca: 0,
-        mesesPromedioFinca: 0,
-        ingresosHaAno: 0
+        pesoPromedioSalida: 540
     });
     const [fincaInfo, setFincaInfo] = useState({
         nombre: '',
@@ -129,15 +127,25 @@ export default function Dashboard() {
                 let countLevante = 0;
                 let gdpSumaLevante = 0;
                 let countGdpLevante = 0;
+                
+                let totalDiasCeba = 0;
+                let countCeba = 0;
+                let gdpSumaCeba = 0;
+                let countGdpCeba = 0;
+                
                 let gdpSumaTotal = 0;
                 let countGdpTotal = 0;
 
                 animales.forEach((animal: any) => {
-                    // KPI: Promedio de Permanencia (Solo para Levante)
+                    // KPI: Promedio de Permanencia
                     if (animal.etapa === 'levante') {
                         const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso));
                         totalDiasLevante += diffHoy;
                         countLevante++;
+                    } else if (animal.etapa === 'ceba') {
+                        const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso));
+                        totalDiasCeba += diffHoy;
+                        countCeba++;
                     }
 
                     // KPI: Ganancia Mensual Promedio (GMP)
@@ -157,6 +165,9 @@ export default function Dashboard() {
                             if (animal.etapa === 'levante') {
                                 gdpSumaLevante += gdpTotal;
                                 countGdpLevante++;
+                            } else if (animal.etapa === 'ceba') {
+                                gdpSumaCeba += gdpTotal;
+                                countGdpCeba++;
                             }
                         }
                     }
@@ -195,27 +206,17 @@ export default function Dashboard() {
                     }
                 }
 
-                const kgGanados = pesoSalidaFinal - pesoEntradaFinal;
                 const gmpTotalCiclo = countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) * 30 : 0;
-                const mesesFinca = gmpTotalCiclo > 0 ? kgGanados / gmpTotalCiclo : 0;
-
-                // Carga precio venta para Ingresos
-                const { data: configKpi } = await supabase
-                    .from('configuracion_kpi')
-                    .select('precio_venta_promedio')
-                    .eq('id_finca', fincaId)
-                    .single();
-                
-                const precioVenta = configKpi?.precio_venta_promedio || 0;
                 const carneHaAno = (finca?.area_aprovechable && finca.area_aprovechable > 0)
                     ? ((totalAnimales || 0) * gmpTotalCiclo * 12) / finca.area_aprovechable
                     : 0;
 
-                // Convertir GDP (Ganancia Diaria) a GMP (Ganancia Mensual = GDP * 30)
                 setStats({
                     totalAnimales: totalAnimales || 0,
                     promedioLevanteMeses: countLevante > 0 ? (totalDiasLevante / countLevante) / 30 : 0,
                     gmpLevante: countGdpLevante > 0 ? (gdpSumaLevante / countGdpLevante) * 30 : 0,
+                    promedioCebaMeses: countCeba > 0 ? (totalDiasCeba / countCeba) / 30 : 0,
+                    gmpCeba: countGdpCeba > 0 ? (gdpSumaCeba / countGdpCeba) * 30 : 0,
                     gmpTotal: gmpTotalCiclo,
                     totalMuertosAno: muertosAnio || 0,
                     produccionCarneHaAno: carneHaAno,
@@ -223,10 +224,7 @@ export default function Dashboard() {
                         ? (totalAnimales || 0) / finca.area_aprovechable
                         : 0,
                     pesoPromedioEntrada: pesoEntradaFinal,
-                    pesoPromedioSalida: pesoSalidaFinal,
-                    kgGanadosFinca: kgGanados,
-                    mesesPromedioFinca: mesesFinca,
-                    ingresosHaAno: carneHaAno * precioVenta
+                    pesoPromedioSalida: pesoSalidaFinal
                 });
 
                 // Agrupar pesajes por mes para gráfica de tendencia de GMP
@@ -357,17 +355,32 @@ export default function Dashboard() {
                                 </div>
                             </div>
                         </div>
-                        <div style={{
-                            background: 'rgba(255,255,255,0.03)',
-                            padding: '20px 32px',
-                            borderRadius: '16px',
-                            border: '1px solid rgba(255,255,255,0.05)',
-                            textAlign: 'center',
-                            minWidth: '200px'
-                        }}>
-                            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Área de Ganado</div>
-                            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
-                                {fincaInfo.area_aprovechable} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Ha</span>
+                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                            <div style={{
+                                background: 'rgba(255,255,255,0.03)',
+                                padding: '20px 32px',
+                                borderRadius: '16px',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                textAlign: 'center',
+                                minWidth: '150px'
+                            }}>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Inventario Actual</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
+                                    {stats.totalAnimales} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Cabezas</span>
+                                </div>
+                            </div>
+                            <div style={{
+                                background: 'rgba(255,255,255,0.03)',
+                                padding: '20px 32px',
+                                borderRadius: '16px',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                textAlign: 'center',
+                                minWidth: '150px'
+                            }}>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Área de Ganado</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
+                                    {fincaInfo.area_aprovechable} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Ha</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -380,37 +393,41 @@ export default function Dashboard() {
                         marginBottom: '32px'
                     }}>
                         <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(76, 175, 80, 0.15)', color: 'var(--primary-light)' }}>
-                                <Scale size={32} />
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 152, 0, 0.15)', color: 'var(--warning)' }}>
+                                <Timer size={32} />
                             </div>
-                            <div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Total Animales Activos</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.totalAnimales}</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Levante</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Tiempo Promedio</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.promedioLevanteMeses.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>meses</span></span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>GMP Lote</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--success)' }}>{stats.gmpLevante.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                </div>
                             </div>
                         </div>
 
                         <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 152, 0, 0.15)', color: 'var(--warning)' }}>
-                                <Timer size={32} />
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(76, 175, 80, 0.15)', color: 'var(--success)' }}>
+                                <TrendingUp size={32} />
                             </div>
-                            <div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Promedio Levante</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.promedioLevanteMeses.toFixed(1)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>meses</span></div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Ceba</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Tiempo Promedio</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.promedioCebaMeses.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>meses</span></span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>GMP Lote</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--success)' }}>{stats.gmpCeba.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                </div>
                             </div>
                         </div>
 
                         <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
                             <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(33, 150, 243, 0.15)', color: '#64B5F6' }}>
-                                <TrendingUp size={32} />
-                            </div>
-                            <div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>GMP Levante</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.gmpLevante.toFixed(1)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg/mes</span></div>
-                            </div>
-                        </div>
-
-                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(156, 39, 176, 0.15)', color: '#BA68C8' }}>
                                 <Activity size={32} />
                             </div>
                             <div>
@@ -421,83 +438,46 @@ export default function Dashboard() {
                         </div>
 
                         <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(156, 39, 176, 0.15)', color: '#BA68C8' }}>
+                                <MapPin size={32} />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Rendimiento Ha</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Kg / Ha / Año</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{Math.round(stats.produccionCarneHaAno)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Carga Animal Actual</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.cargaAnimal.toFixed(2)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>UG/Ha</span></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.05)', color: 'white' }}>
+                                <Scale size={32} />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Pesos Promedio</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Entrada</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{Math.round(stats.pesoPromedioEntrada)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Salida / Venta</span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{Math.round(stats.pesoPromedioSalida)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
                             <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(244, 67, 54, 0.15)', color: 'var(--error)' }}>
                                 <Skull size={32} />
                             </div>
                             <div>
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Muertes en el Año</div>
                                 <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.totalMuertosAno}</div>
-                            </div>
-                        </div>
-
-                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px', border: '1px solid rgba(76, 175, 80, 0.3)' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(76, 175, 80, 0.15)', color: 'var(--primary-light)' }}>
-                                <TrendingUp size={32} />
-                            </div>
-                            <div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Carne / Ha / Año</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(stats.produccionCarneHaAno)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg</span></div>
-                            </div>
-                        </div>
-
-                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px', border: '1px solid rgba(33, 150, 243, 0.3)' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(33, 150, 243, 0.15)', color: '#64B5F6' }}>
-                                <Users size={32} />
-                            </div>
-                            <div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Carga Animal Actual</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.cargaAnimal.toFixed(2)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>An/Ha</span></div>
-                            </div>
-                        </div>
-
-                        {/* Nuevos KPIs Solicitados */}
-                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.05)', color: 'white' }}>
-                                <Scale size={32} />
-                            </div>
-                            <div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Peso Prom. Entrada</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(stats.pesoPromedioEntrada)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg</span></div>
-                            </div>
-                        </div>
-
-                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.05)', color: 'white' }}>
-                                <Scale size={32} />
-                            </div>
-                            <div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Peso Prom. Salida</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(stats.pesoPromedioSalida)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg</span></div>
-                            </div>
-                        </div>
-
-                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(76, 175, 80, 0.15)', color: 'var(--primary-light)' }}>
-                                <TrendingUp size={32} />
-                            </div>
-                            <div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Kg Ganados / Finca</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Math.round(stats.kgGanadosFinca)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg</span></div>
-                            </div>
-                        </div>
-
-                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(255, 152, 0, 0.15)', color: 'var(--warning)' }}>
-                                <Timer size={32} />
-                            </div>
-                            <div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Meses Prom. Finca</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.mesesPromedioFinca.toFixed(1)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>meses</span></div>
-                            </div>
-                        </div>
-
-                        <div className="card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px', border: '1px solid var(--primary)' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'rgba(76, 175, 80, 0.2)', color: 'var(--primary-light)' }}>
-                                <Home size={32} />
-                            </div>
-                            <div>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '8px' }}>Ingresos / Ha / Año</div>
-                                <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>${Math.round(stats.ingresosHaAno).toLocaleString()}</div>
                             </div>
                         </div>
                     </div>
