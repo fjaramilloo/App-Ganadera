@@ -5,6 +5,7 @@ import { Search, Tag, Calendar, Users, FileText, X, Info, TrendingUp } from 'luc
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import SalesReport from '../components/SalesReport';
+import SalesReportSimple from '../components/SalesReportSimple';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
 interface AnimalVentaParaReporte {
@@ -51,8 +52,11 @@ export default function HistorialVentas() {
     const [umbralAlto, setUmbralAlto] = useState(20);
     const [umbralMedio, setUmbralMedio] = useState(10);
     
-    // Estado para abrir el reporte PDF
+    // Estado para abrir el reporte PDF completo
     const [selectedVenta, setSelectedVenta] = useState<VentaGrupo | null>(null);
+
+    // Estado para abrir el reporte simple (solo chapeta + peso)
+    const [selectedVentaSimple, setSelectedVentaSimple] = useState<VentaGrupo | null>(null);
 
     // Estado para abrir modal de detalle de venta (estilo Potreradas)
     const [detalleVenta, setDetalleVenta] = useState<VentaGrupo | null>(null);
@@ -286,35 +290,59 @@ export default function HistorialVentas() {
                                 </div>
                             </div>
                             {/* Botones de acción */}
-                            <div style={{ padding: '12px 20px', display: 'flex', gap: '10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ padding: '12px 20px', display: 'flex', gap: '8px', flexWrap: 'wrap', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                                 <button
                                     onClick={() => setDetalleVenta(venta)}
                                     style={{ 
-                                        flex: 1, 
+                                        flex: '1 1 120px',
                                         background: 'rgba(76, 175, 80, 0.1)', 
                                         border: '1px solid rgba(76, 175, 80, 0.3)', 
                                         color: 'var(--success)', 
-                                        padding: '8px 12px', 
+                                        padding: '8px 10px', 
                                         borderRadius: '8px', 
                                         cursor: 'pointer', 
                                         fontWeight: '600', 
-                                        fontSize: '0.85rem',
+                                        fontSize: '0.8rem',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        gap: '6px',
+                                        gap: '5px',
                                         transition: 'all 0.2s'
                                     }}
                                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(76, 175, 80, 0.2)'; }}
                                     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(76, 175, 80, 0.1)'; }}
                                 >
-                                    <Info size={15} /> Ver Detalle Animales
+                                    <Info size={14} /> Ver Detalle
+                                </button>
+                                <button
+                                    onClick={() => setSelectedVentaSimple(venta)}
+                                    style={{ 
+                                        flex: '1 1 100px',
+                                        padding: '8px 10px', 
+                                        background: 'rgba(33, 150, 243, 0.1)', 
+                                        border: '1px solid rgba(33, 150, 243, 0.3)', 
+                                        color: '#64b5f6', 
+                                        borderRadius: '8px', 
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '5px',
+                                        fontSize: '0.8rem',
+                                        fontWeight: '600',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(33, 150, 243, 0.2)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(33, 150, 243, 0.1)'; }}
+                                    title="Informe simple: chapeta y peso"
+                                >
+                                    <FileText size={14} /> Simple
                                 </button>
                                 <button
                                     onClick={() => setSelectedVenta(venta)}
                                     style={{ 
-                                        width: 'auto', 
-                                        padding: '8px 14px', 
+                                        flex: '1 1 80px',
+                                        padding: '8px 10px', 
                                         background: 'rgba(244, 67, 54, 0.1)', 
                                         border: '1px solid rgba(244, 67, 54, 0.3)', 
                                         color: 'var(--error)', 
@@ -322,16 +350,17 @@ export default function HistorialVentas() {
                                         cursor: 'pointer',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '6px',
-                                        fontSize: '0.85rem',
+                                        justifyContent: 'center',
+                                        gap: '5px',
+                                        fontSize: '0.8rem',
                                         fontWeight: '600',
                                         transition: 'all 0.2s'
                                     }}
                                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(244, 67, 54, 0.2)'; }}
                                     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(244, 67, 54, 0.1)'; }}
-                                    title="Ver informe PDF"
+                                    title="Informe completo PDF"
                                 >
-                                    <FileText size={15} /> PDF
+                                    <FileText size={14} /> PDF
                                 </button>
                             </div>
                         </div>
@@ -339,7 +368,7 @@ export default function HistorialVentas() {
                 )}
             </div>
 
-            {/* Modal PDF Report */}
+            {/* Modal PDF Report completo */}
             {selectedVenta && (
                 <SalesReport
                     fincaNombre={userFincas.find((f: any) => f.id_finca === fincaId)?.nombre_finca || 'Finca'}
@@ -349,6 +378,17 @@ export default function HistorialVentas() {
                     umbralAlto={umbralAlto}
                     umbralMedio={umbralMedio}
                     onClose={() => setSelectedVenta(null)}
+                />
+            )}
+
+            {/* Modal Informe Simple */}
+            {selectedVentaSimple && (
+                <SalesReportSimple
+                    fincaNombre={userFincas.find((f: any) => f.id_finca === fincaId)?.nombre_finca || 'Finca'}
+                    fechaVenta={selectedVentaSimple.fechaVenta}
+                    animales={selectedVentaSimple.animalesReporte}
+                    comprador={selectedVentaSimple.comprador}
+                    onClose={() => setSelectedVentaSimple(null)}
                 />
             )}
 
