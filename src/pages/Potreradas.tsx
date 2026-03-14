@@ -25,6 +25,9 @@ interface AnimalPotrero {
     pesoActual: number;
     gdp?: number;
     gmp?: number;
+    fechaIngresoEtapa?: string | null;
+    pesoIngresoEtapa?: number | null;
+    pesajesFiltrados?: { [fecha: string]: number };
 }
 
 interface ChartData {
@@ -57,6 +60,7 @@ export default function Potreradas() {
         potrerada: Potrerada;
         potreroActual: string;
         animales: AnimalPotrero[];
+        fechasColumnas: string[];
         gmpPromedioGrupo: number;
         history: ChartData[];
     } | null>(null);
@@ -281,11 +285,13 @@ export default function Potreradas() {
                     nombre_propietario,
                     peso_ingreso,
                     fecha_ingreso,
+                    etapa,
                     id_potrero_actual,
                     potreros (nombre),
                     registros_pesaje (
                         peso,
                         fecha,
+                        etapa,
                         gdp_calculada
                     )
                 `)
@@ -303,6 +309,27 @@ export default function Potreradas() {
                 const registros = (a.registros_pesaje || []).sort((x: any, y: any) => 
                     new Date(y.fecha).getTime() - new Date(x.fecha).getTime()
                 );
+
+                const registrosEtapa = (a.registros_pesaje || [])
+                    .filter((r: any) => r.etapa?.toLowerCase() === p.etapa.toLowerCase())
+                    .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+
+                let fechaIngresoEtapa = null;
+                let pesoIngresoEtapa = null;
+
+                if (registrosEtapa.length > 0) {
+                    fechaIngresoEtapa = registrosEtapa[0].fecha;
+                    pesoIngresoEtapa = registrosEtapa[0].peso;
+                } else if (a.etapa?.toLowerCase() === p.etapa.toLowerCase()) {
+                    fechaIngresoEtapa = a.fecha_ingreso;
+                    pesoIngresoEtapa = a.peso_ingreso;
+                }
+
+                const pesajesMap: Record<string, number> = {};
+                registrosEtapa.forEach((r: any) => {
+                    pesajesMap[r.fecha] = r.peso;
+                });
+
                 const gdp = registros[0]?.gdp_calculada || 0;
                 return {
                     id: a.id,
@@ -311,13 +338,24 @@ export default function Potreradas() {
                     id_potrerada: p.id,
                     pesoActual: registros[0] ? registros[0].peso : a.peso_ingreso,
                     gdp: gdp,
-                    gmp: gdp * 30
+                    gmp: gdp * 30,
+                    fechaIngresoEtapa: fechaIngresoEtapa,
+                    pesoIngresoEtapa: pesoIngresoEtapa,
+                    pesajesFiltrados: pesajesMap
                 };
             });
 
             const avgGmp = processedAnimals.length > 0 
                 ? processedAnimals.reduce((acc, curr) => acc + (curr.gmp || 0), 0) / processedAnimals.length
                 : 0;
+
+            const fechasRegistradasSet = new Set<string>();
+            processedAnimals.forEach(a => {
+                if (a.pesajesFiltrados) {
+                    Object.keys(a.pesajesFiltrados).forEach(f => fechasRegistradasSet.add(f));
+                }
+            });
+            const fechasColumnas = Array.from(fechasRegistradasSet).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
 
             // 4. Preparar datos para las gráficas (agrupar pesajes por fecha)
             const allWeighings: { fecha: string; peso: number; gdp: number }[] = [];
@@ -349,6 +387,7 @@ export default function Potreradas() {
                 potrerada: p,
                 potreroActual: potreroName,
                 animales: processedAnimals,
+                fechasColumnas: fechasColumnas,
                 gmpPromedioGrupo: avgGmp,
                 history
             });
@@ -676,17 +715,31 @@ export default function Potreradas() {
                                                 <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                                     <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)' }}>CHAPETA</th>
                                                     <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PROPIETARIO</th>
-                                                    <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESO</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>INGRESO {detailData.potrerada.etapa.toUpperCase()}</th>
+                                                    <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESO INGR.</th>
+                                                    {detailData.fechasColumnas.map(fecha => (
+                                                        <th key={fecha} style={{ padding: '10px 12px', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>PESAJE {format(new Date(fecha + 'T12:00:00'), 'dd/MM/yy')}</th>
+                                                    ))}
                                                     <th style={{ padding: '10px 12px', textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)' }}>GMP</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {detailData.animales.map((a, idx) => (
                                                     <tr key={a.id} style={{ borderBottom: idx < detailData.animales.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-                                                        <td style={{ padding: '12px 16px', fontWeight: 'bold' }}>#{a.numero_chapeta}</td>
-                                                        <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>{a.nombre_propietario}</td>
-                                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold' }}>{Math.round(a.pesoActual)} kg</td>
-                                                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                                        <td style={{ padding: '12px 16px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>#{a.numero_chapeta}</td>
+                                                        <td style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>{a.nombre_propietario}</td>
+                                                        <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                                            {a.fechaIngresoEtapa ? format(new Date(a.fechaIngresoEtapa + 'T12:00:00'), 'dd/MM/yyyy') : '-'}
+                                                        </td>
+                                                        <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                                            {a.pesoIngresoEtapa ? `${Math.round(a.pesoIngresoEtapa)} kg` : '-'}
+                                                        </td>
+                                                        {detailData.fechasColumnas.map(fecha => (
+                                                            <td key={fecha} style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--text)' }}>
+                                                                {a.pesajesFiltrados?.[fecha] ? `${Math.round(a.pesajesFiltrados[fecha])} kg` : '-'}
+                                                            </td>
+                                                        ))}
+                                                        <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                             <span style={{ 
                                                                 color: (a.gmp || 0) > umbralAlto ? 'var(--success)' : (a.gmp || 0) > umbralMedio ? 'var(--warning)' : 'var(--error)',
                                                                 fontWeight: 'bold'
