@@ -247,126 +247,126 @@ export default function HistorialVentas() {
                 </div>
             </div>
 
-            <div className="grid-responsive">
-                {loading ? (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--primary)', gridColumn: '1 / -1' }}>
-                        Cargando historial de ventas...
+            {loading ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--primary-light)' }}>
+                    Cargando historial de ventas...
+                </div>
+            ) : filteredVentas.length === 0 ? (
+                <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    No hay ventas registradas que coincidan con la búsqueda.
+                </div>
+            ) : (
+                <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Venta / Fecha</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Comprador</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Animales</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Peso Prom.</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>GMP Lote</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'right' }}>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredVentas.map((venta, idx) => (
+                                    <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s ease' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.01)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                        <td style={{ padding: '16px 24px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1rem' }}>{venta.fechaVenta}</div>
+                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Calendar size={12} /> {formatFecha(venta.fechaVenta)}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '16px 24px' }}>
+                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>{venta.comprador}</div>
+                                        </td>
+                                        <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                            <span style={{ fontWeight: 'bold', color: 'white' }}>{venta.animalesCount}</span>
+                                        </td>
+                                        <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                            <span style={{ fontWeight: 'bold', color: 'white' }}>{Math.round(venta.pesoPromedio)}</span>
+                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '4px' }}>kg</span>
+                                        </td>
+                                        <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                                            <span style={{
+                                                color: venta.gmpPromedio > umbralAlto ? 'var(--success)' : (venta.gmpPromedio > umbralMedio ? 'var(--warning)' : (venta.gmpPromedio > 0 ? 'var(--error)' : 'white')),
+                                                fontWeight: 'bold'
+                                            }}>
+                                                {venta.gmpPromedio > 0 ? venta.gmpPromedio.toFixed(1) : '-'}
+                                                {venta.gmpPromedio > 0 && <small style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '2px' }}>kg/m</small>}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                <button
+                                                    onClick={() => setDetalleVenta(venta)}
+                                                    style={{ 
+                                                        background: 'rgba(76, 175, 80, 0.1)', 
+                                                        border: '1px solid rgba(76, 175, 80, 0.3)', 
+                                                        color: 'var(--success)', 
+                                                        padding: '6px 12px', 
+                                                        borderRadius: '6px', 
+                                                        cursor: 'pointer', 
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: '600',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                    }}
+                                                    title="Ver detalle de animales"
+                                                >
+                                                    <Info size={14} /> Detalle
+                                                </button>
+                                                <button
+                                                    onClick={() => setSelectedVentaSimple(venta)}
+                                                    style={{ 
+                                                        background: 'rgba(33, 150, 243, 0.1)', 
+                                                        border: '1px solid rgba(33, 150, 243, 0.3)', 
+                                                        color: '#64b5f6', 
+                                                        padding: '6px 12px', 
+                                                        borderRadius: '6px', 
+                                                        cursor: 'pointer', 
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: '600',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                    }}
+                                                    title="Informe simple"
+                                                >
+                                                    <FileText size={14} /> Simple
+                                                </button>
+                                                <button
+                                                    onClick={() => setSelectedVenta(venta)}
+                                                    style={{ 
+                                                        background: 'rgba(244, 67, 54, 0.1)', 
+                                                        border: '1px solid rgba(244, 67, 54, 0.3)', 
+                                                        color: 'var(--error)', 
+                                                        padding: '6px 12px', 
+                                                        borderRadius: '6px', 
+                                                        cursor: 'pointer', 
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: '600',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                    }}
+                                                    title="Informe PDF"
+                                                >
+                                                    <FileText size={14} /> PDF
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
-                ) : filteredVentas.length === 0 ? (
-                    <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', gridColumn: '1 / -1' }}>
-                        No hay ventas registradas que coincidan con la búsqueda.
-                    </div>
-                ) : (
-                    filteredVentas.map((venta, idx) => (
-                        <div 
-                            key={idx} 
-                            className="card" 
-                            style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
-                        >
-                            <div style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                    <FileText size={20} color="var(--primary-light)" />
-                                    {venta.titulo.toUpperCase()}
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                    <Calendar size={14} /> Fecha de salida: {formatFecha(venta.fechaVenta)}
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
-                                    <Users size={14} /> Comprador: {venta.comprador}
-                                </div>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', padding: '20px', gap: '16px', backgroundColor: 'rgba(0,0,0,0.1)' }}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Animales</div>
-                                    <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'white' }}>{venta.animalesCount}</div>
-                                </div>
-                                <div style={{ textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>Peso Prom.</div>
-                                    <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'white' }}>{Math.round(venta.pesoPromedio)}<span style={{ fontSize: '0.8rem', opacity: 0.6 }}>kg</span></div>
-                                </div>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}>GMP Lote</div>
-                                    <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: venta.gmpPromedio > umbralAlto ? 'var(--success)' : (venta.gmpPromedio > umbralMedio ? 'var(--warning)' : (venta.gmpPromedio > 0 ? 'var(--error)' : 'white')) }}>{venta.gmpPromedio > 0 ? venta.gmpPromedio.toFixed(1) : '-'}<span style={{ fontSize: '0.8rem', opacity: 0.6 }}>kg</span></div>
-                                </div>
-                            </div>
-                            {/* Botones de acción */}
-                            <div style={{ padding: '12px 20px', display: 'flex', gap: '8px', flexWrap: 'wrap', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                <button
-                                    onClick={() => setDetalleVenta(venta)}
-                                    style={{ 
-                                        flex: '1 1 120px',
-                                        background: 'rgba(76, 175, 80, 0.1)', 
-                                        border: '1px solid rgba(76, 175, 80, 0.3)', 
-                                        color: 'var(--success)', 
-                                        padding: '8px 10px', 
-                                        borderRadius: '8px', 
-                                        cursor: 'pointer', 
-                                        fontWeight: '600', 
-                                        fontSize: '0.8rem',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '5px',
-                                        transition: 'all 0.2s'
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(76, 175, 80, 0.2)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(76, 175, 80, 0.1)'; }}
-                                >
-                                    <Info size={14} /> Ver Detalle
-                                </button>
-                                <button
-                                    onClick={() => setSelectedVentaSimple(venta)}
-                                    style={{ 
-                                        flex: '1 1 100px',
-                                        padding: '8px 10px', 
-                                        background: 'rgba(33, 150, 243, 0.1)', 
-                                        border: '1px solid rgba(33, 150, 243, 0.3)', 
-                                        color: '#64b5f6', 
-                                        borderRadius: '8px', 
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '5px',
-                                        fontSize: '0.8rem',
-                                        fontWeight: '600',
-                                        transition: 'all 0.2s'
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(33, 150, 243, 0.2)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(33, 150, 243, 0.1)'; }}
-                                    title="Informe simple: chapeta y peso"
-                                >
-                                    <FileText size={14} /> Simple
-                                </button>
-                                <button
-                                    onClick={() => setSelectedVenta(venta)}
-                                    style={{ 
-                                        flex: '1 1 80px',
-                                        padding: '8px 10px', 
-                                        background: 'rgba(244, 67, 54, 0.1)', 
-                                        border: '1px solid rgba(244, 67, 54, 0.3)', 
-                                        color: 'var(--error)', 
-                                        borderRadius: '8px', 
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '5px',
-                                        fontSize: '0.8rem',
-                                        fontWeight: '600',
-                                        transition: 'all 0.2s'
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(244, 67, 54, 0.2)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(244, 67, 54, 0.1)'; }}
-                                    title="Informe completo PDF"
-                                >
-                                    <FileText size={14} /> PDF
-                                </button>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
+                </div>
+            )}
 
             {/* Modal PDF Report completo */}
             {selectedVenta && (
