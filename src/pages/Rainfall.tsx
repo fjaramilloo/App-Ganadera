@@ -10,6 +10,7 @@ interface RegistroLluvia {
     fecha: string;
     milimetros: number;
     notas: string;
+    creado_en: string;
 }
 
 export default function Rainfall() {
@@ -122,34 +123,55 @@ export default function Rainfall() {
                     <button className="btn btn-primary" style={{ marginTop: '20px' }} onClick={() => setShowModal(true)}>Registrar Primera Lluvia</button>
                 </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-                    {registros.map((r) => (
-                        <div key={r.id} className="card" style={{ padding: '20px', borderLeft: '4px solid var(--primary-light)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
-                                    <Calendar size={16} />
-                                    <span style={{ fontSize: '0.9rem' }}>
-                                        {format(new Date(r.fecha + 'T12:00:00'), 'dd MMM yyyy', { locale: es }).toUpperCase()}
-                                    </span>
-                                </div>
-                                <button
-                                    onClick={() => handleEliminar(r.id)}
-                                    style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', opacity: 0.6 }}
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                <span style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'white' }}>{r.milimetros}</span>
-                                <span style={{ color: 'var(--primary-light)', fontWeight: '600' }}>mm</span>
-                            </div>
-                            {r.notas && (
-                                <p style={{ marginTop: '12px', fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px' }}>
-                                    "{r.notas}"
-                                </p>
-                            )}
-                        </div>
-                    ))}
+                <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Fecha</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Hora de Ingreso</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Precipitación</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Notas</th>
+                                    <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'right' }}>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {registros.map((r) => (
+                                    <tr key={r.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s ease' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.01)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                        <td style={{ padding: '16px 24px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <Calendar size={16} color="var(--primary-light)" />
+                                                <span style={{ fontWeight: '500' }}>
+                                                    {format(new Date(r.fecha + 'T12:00:00'), 'dd MMM yyyy', { locale: es })}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '16px 24px', color: 'var(--text-muted)' }}>
+                                            {format(new Date(r.creado_en), 'HH:mm', { locale: es })}
+                                        </td>
+                                        <td style={{ padding: '16px 24px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>{r.milimetros}</span>
+                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>mm</span>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '16px 24px', color: 'var(--text-muted)', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {r.notas ? `"${r.notas}"` : '-'}
+                                        </td>
+                                        <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                                            <button
+                                                onClick={() => handleEliminar(r.id)}
+                                                style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', opacity: 0.6, padding: '4px' }}
+                                                title="Eliminar registro"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 
