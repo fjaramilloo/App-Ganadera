@@ -88,6 +88,8 @@ export default function Dashboard() {
     }>({ levante: {}, ceba: {} });
     const [sortCol, setSortCol] = useState<'propietario' | 'gmp'>('gmp');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+    const [filterTipo, setFilterTipo] = useState<'historico' | 'actual'>('actual');
+    const [rawData, setRawData] = useState<{ animales: any[], pesajes: any[] } | null>(null);
 
     const handleOpenMuertes = async () => {
         setMuertesModalVisible(true);
@@ -282,138 +284,141 @@ export default function Dashboard() {
                     pesoPromedioSalida: pesoSalidaFinal
                 });
 
-                // Agrupar pesajes por animal para calcular evolución por Nro de Pesaje
-                const pesajesPorAnimal: Record<string, any[]> = {};
-                (pesajes || []).forEach((p: any) => {
-                    if (!pesajesPorAnimal[p.id_animal]) {
-                        pesajesPorAnimal[p.id_animal] = [];
-                    }
-                    pesajesPorAnimal[p.id_animal].push(p);
+                setRawData({
+                    animales: (todosAnimales || []).map((a: any) => ({
+                        ...a,
+                        estado: (animales?.find(active => active.id === a.id)) ? 'activo' : 'no-activo'
+                    })),
+                    pesajes: pesajes || []
                 });
 
-                const gmpLevanteAgrupado: Record<number, { sum: number, count: number }> = {};
-                const gmpCebaAgrupado: Record<number, { sum: number, count: number }> = {};
-                const gmpLevanteDetalles: Record<number, GmpDetailItem[]> = {};
-                const gmpCebaDetalles: Record<number, GmpDetailItem[]> = {};
+                // Agrupar lluvias por mes
+                const gruposLluvia: Record<string, number> = {};
+                (lluvias || []).forEach((r: any) => {
+                    const mes = r.fecha.substring(0, 7);
+                    gruposLluvia[mes] = (gruposLluvia[mes] || 0) + r.milimetros;
+                });
 
-                Object.keys(pesajesPorAnimal).forEach(idAnimal => {
-                    const animal = todosAnimales?.find(a => a.id === idAnimal);
-                    if (!animal) return;
-
-                    // Ordenar pesajes cronológicamente
-                    const misPesajes = pesajesPorAnimal[idAnimal].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-                    
-                    let prevWeight = parseFloat(animal.peso_ingreso);
-                    let prevDate = new Date(animal.fecha_ingreso);
-                    let levanteIndex = 0;
-                    let cebaIndex = 0;
-                    
-                    misPesajes.forEach((p: any) => {
-                        const currentWeight = parseFloat(p.peso);
-                        const currentDate = new Date(p.fecha);
-                        const diffDias = differenceInDays(currentDate, prevDate);
-                        
-                        if (diffDias > 0) {
-                            const ganancia = currentWeight - prevWeight;
-                            const gmpVal = (ganancia / diffDias) * 30;
-                            
-                            const detail: GmpDetailItem = {
-                                id_animal: idAnimal,
-                                chapeta: animal.numero_chapeta || 'N/A',
-                                propietario: animal.nombre_propietario || 'Sin Propietario',
-                                fechaAnterior: format(prevDate, 'dd/MM/yyyy'),
-                                pesoAnterior: prevWeight,
-                                fechaActual: format(currentDate, 'dd/MM/yyyy'),
-                                pesoActual: currentWeight,
-                                gmp: parseFloat(gmpVal.toFixed(1))
+                if (Object.keys(gruposLluvia).length > 0) {
+                    const lt: LluviaItem[] = Object.keys(gruposLluvia)
+                        .sort()
+                        .map(key => {
+                            const [anio, mes] = key.split('-');
+                            return {
+                                fecha: format(new Date(parseInt(anio), parseInt(mes) - 1), 'MMM', { locale: es }),
+                                mm: parseFloat(gruposLluvia[key].toFixed(1))
                             };
-
-                            if (p.etapa === 'levante') {
-                                levanteIndex++;
-                                if (!gmpLevanteAgrupado[levanteIndex]) gmpLevanteAgrupado[levanteIndex] = { sum: 0, count: 0 };
-                                gmpLevanteAgrupado[levanteIndex].sum += gmpVal;
-                                gmpLevanteAgrupado[levanteIndex].count++;
-                                if (!gmpLevanteDetalles[levanteIndex]) gmpLevanteDetalles[levanteIndex] = [];
-                                gmpLevanteDetalles[levanteIndex].push(detail);
-                            } else {
-                                cebaIndex++;
-                                if (!gmpCebaAgrupado[cebaIndex]) gmpCebaAgrupado[cebaIndex] = { sum: 0, count: 0 };
-                                gmpCebaAgrupado[cebaIndex].sum += gmpVal;
-                                gmpCebaAgrupado[cebaIndex].count++;
-                                if (!gmpCebaDetalles[cebaIndex]) gmpCebaDetalles[cebaIndex] = [];
-                                gmpCebaDetalles[cebaIndex].push(detail);
-                            }
-                        }
-                        
-                        prevWeight = currentWeight;
-                        prevDate = currentDate;
-                    });
-                });
-
-                setDetallesGmpAgrupados({ levante: gmpLevanteDetalles, ceba: gmpCebaDetalles });
-
-                const maxIdx = Math.max(
-                    ...Object.keys(gmpLevanteAgrupado).map(Number),
-                    ...Object.keys(gmpCebaAgrupado).map(Number),
-                    0
-                );
-
-                if (maxIdx > 0) {
-                    const dataEvolucion: EvolucionItem[] = [];
-                    for (let i = 1; i <= Math.min(maxIdx, 15); i++) {
-                        const item: EvolucionItem = { numero: i, label: `Medición ${i}` };
-                        if (gmpLevanteAgrupado[i]) item.gmpLevante = parseFloat((gmpLevanteAgrupado[i].sum / gmpLevanteAgrupado[i].count).toFixed(1));
-                        if (gmpCebaAgrupado[i]) item.gmpCeba = parseFloat((gmpCebaAgrupado[i].sum / gmpCebaAgrupado[i].count).toFixed(1));
-                        dataEvolucion.push(item);
-                    }
-                    setEvolucionGmp(dataEvolucion);
+                        });
+                    setEvolucionLluvia(lt);
                 } else {
-                    setEvolucionGmp([
-                        { numero: 1, label: 'Medición 1', gmpLevante: 12.5, gmpCeba: 14.2 },
-                        { numero: 2, label: 'Medición 2', gmpLevante: 13.2, gmpCeba: 15.1 },
-                        { numero: 3, label: 'Medición 3', gmpLevante: 14.8, gmpCeba: 14.5 },
-                        { numero: 4, label: 'Medición 4', gmpLevante: 15.1, gmpCeba: 16.0 },
-                        { numero: 5, label: 'Medición 5', gmpLevante: 14.5, gmpCeba: 15.8 }
+                    setEvolucionLluvia([
+                        { fecha: 'Ene', mm: 120 }, { fecha: 'Feb', mm: 150 }, { fecha: 'Mar', mm: 80 }, { fecha: 'Abr', mm: 200 }, { fecha: 'May', mm: 250 }
                     ]);
                 }
-            } else {
-                setEvolucionGmp([
-                    { numero: 1, label: 'Medición 1', gmpLevante: 12.5, gmpCeba: 14.2 },
-                    { numero: 2, label: 'Medición 2', gmpLevante: 13.2, gmpCeba: 15.1 },
-                    { numero: 3, label: 'Medición 3', gmpLevante: 14.8, gmpCeba: 14.5 },
-                    { numero: 4, label: 'Medición 4', gmpLevante: 15.1, gmpCeba: 16.0 },
-                    { numero: 5, label: 'Medición 5', gmpLevante: 14.5, gmpCeba: 15.8 }
-                ]);
-            }
-
-            // Agrupar lluvias por mes
-            const gruposLluvia: Record<string, number> = {};
-            (lluvias || []).forEach((r: any) => {
-                const mes = r.fecha.substring(0, 7);
-                gruposLluvia[mes] = (gruposLluvia[mes] || 0) + r.milimetros;
-            });
-
-            if (Object.keys(gruposLluvia).length > 0) {
-                const lt: LluviaItem[] = Object.keys(gruposLluvia)
-                    .sort()
-                    .map(key => {
-                        const [anio, mes] = key.split('-');
-                        return {
-                            fecha: format(new Date(parseInt(anio), parseInt(mes) - 1), 'MMM', { locale: es }),
-                            mm: parseFloat(gruposLluvia[key].toFixed(1))
-                        };
-                    });
-                setEvolucionLluvia(lt);
-            } else {
-                setEvolucionLluvia([
-                    { fecha: 'Ene', mm: 120 }, { fecha: 'Feb', mm: 150 }, { fecha: 'Mar', mm: 80 }, { fecha: 'Abr', mm: 200 }, { fecha: 'May', mm: 250 }
-                ]);
             }
             setLoading(false);
         }
         fetchDashboardData();
     }, [fincaId]);
 
+    // Efecto para procesar la evolución GMP según el filtro
+    useEffect(() => {
+        if (!rawData) return;
+
+        const { animales, pesajes } = rawData;
+        const animalesFiltrados = filterTipo === 'actual' 
+            ? animales.filter(a => a.estado === 'activo')
+            : animales;
+
+        // Agrupar pesajes por animal
+        const pesajesPorAnimal: Record<string, any[]> = {};
+        pesajes.forEach((p: any) => {
+            if (!pesajesPorAnimal[p.id_animal]) {
+                pesajesPorAnimal[p.id_animal] = [];
+            }
+            pesajesPorAnimal[p.id_animal].push(p);
+        });
+
+        const gmpLevanteAgrupado: Record<number, { sum: number, count: number }> = {};
+        const gmpCebaAgrupado: Record<number, { sum: number, count: number }> = {};
+        const gmpLevanteDetalles: Record<number, GmpDetailItem[]> = {};
+        const gmpCebaDetalles: Record<number, GmpDetailItem[]> = {};
+
+        animalesFiltrados.forEach(animal => {
+            const misPesajes = pesajesPorAnimal[animal.id];
+            if (!misPesajes || misPesajes.length === 0) return;
+
+            // Ordenar pesajes cronológicamente
+            const ordenados = [...misPesajes].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+            
+            let prevWeight = parseFloat(animal.peso_ingreso);
+            let prevDate = new Date(animal.fecha_ingreso);
+            let levanteIndex = 0;
+            let cebaIndex = 0;
+            
+            ordenados.forEach((p: any) => {
+                const currentWeight = parseFloat(p.weight || p.peso); // Soporte para ambos nombres si aplica
+                const currentDate = new Date(p.fecha);
+                const diffDias = differenceInDays(currentDate, prevDate);
+                
+                if (diffDias > 0) {
+                    const ganancia = currentWeight - prevWeight;
+                    const gmpVal = (ganancia / diffDias) * 30;
+                    
+                    const detail: GmpDetailItem = {
+                        id_animal: animal.id,
+                        chapeta: animal.numero_chapeta || 'N/A',
+                        propietario: animal.nombre_propietario || 'Sin Propietario',
+                        fechaAnterior: format(prevDate, 'dd/MM/yyyy'),
+                        pesoAnterior: prevWeight,
+                        fechaActual: format(currentDate, 'dd/MM/yyyy'),
+                        pesoActual: currentWeight,
+                        gmp: parseFloat(gmpVal.toFixed(1))
+                    };
+
+                    if (p.etapa === 'levante') {
+                        levanteIndex++;
+                        if (!gmpLevanteAgrupado[levanteIndex]) gmpLevanteAgrupado[levanteIndex] = { sum: 0, count: 0 };
+                        gmpLevanteAgrupado[levanteIndex].sum += gmpVal;
+                        gmpLevanteAgrupado[levanteIndex].count++;
+                        if (!gmpLevanteDetalles[levanteIndex]) gmpLevanteDetalles[levanteIndex] = [];
+                        gmpLevanteDetalles[levanteIndex].push(detail);
+                    } else {
+                        cebaIndex++;
+                        if (!gmpCebaAgrupado[cebaIndex]) gmpCebaAgrupado[cebaIndex] = { sum: 0, count: 0 };
+                        gmpCebaAgrupado[cebaIndex].sum += gmpVal;
+                        gmpCebaAgrupado[cebaIndex].count++;
+                        if (!gmpCebaDetalles[cebaIndex]) gmpCebaDetalles[cebaIndex] = [];
+                        gmpCebaDetalles[cebaIndex].push(detail);
+                    }
+                }
+                
+                prevWeight = currentWeight;
+                prevDate = currentDate;
+            });
+        });
+
+        const maxIdx = Math.max(
+            ...Object.keys(gmpLevanteAgrupado).map(Number),
+            ...Object.keys(gmpCebaAgrupado).map(Number),
+            0
+        );
+
+        if (maxIdx > 0) {
+            const dataEvolucion: EvolucionItem[] = [];
+            for (let i = 1; i <= Math.min(maxIdx, 15); i++) {
+                const item: EvolucionItem = { numero: i, label: `Medición ${i}` };
+                if (gmpLevanteAgrupado[i]) item.gmpLevante = parseFloat((gmpLevanteAgrupado[i].sum / gmpLevanteAgrupado[i].count).toFixed(1));
+                if (gmpCebaAgrupado[i]) item.gmpCeba = parseFloat((gmpCebaAgrupado[i].sum / gmpCebaAgrupado[i].count).toFixed(1));
+                dataEvolucion.push(item);
+            }
+            setEvolucionGmp(dataEvolucion);
+            setDetallesGmpAgrupados({ levante: gmpLevanteDetalles, ceba: gmpCebaDetalles });
+        } else {
+            setEvolucionGmp([]);
+            setDetallesGmpAgrupados({ levante: {}, ceba: {} });
+        }
+    }, [filterTipo, rawData]);
     return (
         <div className="page-container" style={{ paddingBottom: '40px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
@@ -598,9 +603,39 @@ export default function Dashboard() {
                     {/* Gráficas */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '24px' }}>
                         <div className="card" style={{ padding: '24px' }}>
-                            <div style={{ marginBottom: '24px' }}>
-                                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Desempeño de GMP por Medición</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Evolución del promedio de ganancia por cada toma de peso (Levante vs Ceba)</p>
+                            <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Desempeño de GMP por Medición</h3>
+                                    
+                                    <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px', marginTop: '12px', width: 'fit-content' }}>
+                                        <button 
+                                            onClick={() => setFilterTipo('actual')}
+                                            style={{ 
+                                                padding: '6px 16px', 
+                                                fontSize: '0.85rem', 
+                                                background: filterTipo === 'actual' ? 'var(--primary)' : 'transparent',
+                                                border: 'none',
+                                                color: filterTipo === 'actual' ? 'white' : 'var(--text-muted)'
+                                            }}
+                                        >
+                                            Actual (Activos)
+                                        </button>
+                                        <button 
+                                            onClick={() => setFilterTipo('historico')}
+                                            style={{ 
+                                                padding: '6px 16px', 
+                                                fontSize: '0.85rem', 
+                                                background: filterTipo === 'historico' ? 'var(--primary)' : 'transparent',
+                                                border: 'none',
+                                                color: filterTipo === 'historico' ? 'white' : 'var(--text-muted)'
+                                            }}
+                                        >
+                                            Histórico (Todos)
+                                        </button>
+                                    </div>
+
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '12px' }}>Evolución del promedio de ganancia por cada toma de peso (Levante vs Ceba)</p>
+                                </div>
                             </div>
                             <div style={{ width: '100%', height: '350px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
