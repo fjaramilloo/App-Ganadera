@@ -31,6 +31,17 @@ interface EvolucionItem {
     gmpCeba?: number;
 }
 
+interface GmpDetailItem {
+    id_animal: string;
+    chapeta: string;
+    propietario: string;
+    fechaAnterior: string;
+    pesoAnterior: number;
+    fechaActual: string;
+    pesoActual: number;
+    gmp: number;
+}
+
 interface LluviaItem {
     fecha: string;
     mm: number;
@@ -65,6 +76,18 @@ export default function Dashboard() {
     });
     const [evolucionGmp, setEvolucionGmp] = useState<EvolucionItem[]>([]);
     const [evolucionLluvia, setEvolucionLluvia] = useState<LluviaItem[]>([]);
+    const [detailModalVisible, setDetailModalVisible] = useState(false);
+    const [selectedDetail, setSelectedDetail] = useState<{
+        label: string,
+        etapa: string,
+        items: GmpDetailItem[]
+    } | null>(null);
+    const [detallesGmpAgrupados, setDetallesGmpAgrupados] = useState<{
+        levante: Record<number, GmpDetailItem[]>,
+        ceba: Record<number, GmpDetailItem[]>
+    }>({ levante: {}, ceba: {} });
+    const [sortCol, setSortCol] = useState<'propietario' | 'gmp'>('gmp');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
     const handleOpenMuertes = async () => {
         setMuertesModalVisible(true);
@@ -110,7 +133,7 @@ export default function Dashboard() {
             // 2b. Traer TODOS los animales para la evolución histórica
             const { data: todosAnimales } = await supabase
                 .from('animales')
-                .select('id, etapa, fecha_ingreso, peso_ingreso')
+                .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, nombre_propietario')
                 .eq('id_finca', fincaId);
 
             // 3. Traer los últimos pesajes para evolucion
@@ -270,6 +293,8 @@ export default function Dashboard() {
 
                 const gmpLevanteAgrupado: Record<number, { sum: number, count: number }> = {};
                 const gmpCebaAgrupado: Record<number, { sum: number, count: number }> = {};
+                const gmpLevanteDetalles: Record<number, GmpDetailItem[]> = {};
+                const gmpCebaDetalles: Record<number, GmpDetailItem[]> = {};
 
                 Object.keys(pesajesPorAnimal).forEach(idAnimal => {
                     const animal = todosAnimales?.find(a => a.id === idAnimal);
@@ -292,16 +317,31 @@ export default function Dashboard() {
                             const ganancia = currentWeight - prevWeight;
                             const gmpVal = (ganancia / diffDias) * 30;
                             
+                            const detail: GmpDetailItem = {
+                                id_animal: idAnimal,
+                                chapeta: animal.numero_chapeta || 'N/A',
+                                propietario: animal.nombre_propietario || 'Sin Propietario',
+                                fechaAnterior: format(prevDate, 'dd/MM/yyyy'),
+                                pesoAnterior: prevWeight,
+                                fechaActual: format(currentDate, 'dd/MM/yyyy'),
+                                pesoActual: currentWeight,
+                                gmp: parseFloat(gmpVal.toFixed(1))
+                            };
+
                             if (p.etapa === 'levante') {
                                 levanteIndex++;
                                 if (!gmpLevanteAgrupado[levanteIndex]) gmpLevanteAgrupado[levanteIndex] = { sum: 0, count: 0 };
                                 gmpLevanteAgrupado[levanteIndex].sum += gmpVal;
                                 gmpLevanteAgrupado[levanteIndex].count++;
+                                if (!gmpLevanteDetalles[levanteIndex]) gmpLevanteDetalles[levanteIndex] = [];
+                                gmpLevanteDetalles[levanteIndex].push(detail);
                             } else {
                                 cebaIndex++;
                                 if (!gmpCebaAgrupado[cebaIndex]) gmpCebaAgrupado[cebaIndex] = { sum: 0, count: 0 };
                                 gmpCebaAgrupado[cebaIndex].sum += gmpVal;
                                 gmpCebaAgrupado[cebaIndex].count++;
+                                if (!gmpCebaDetalles[cebaIndex]) gmpCebaDetalles[cebaIndex] = [];
+                                gmpCebaDetalles[cebaIndex].push(detail);
                             }
                         }
                         
@@ -309,6 +349,8 @@ export default function Dashboard() {
                         prevDate = currentDate;
                     });
                 });
+
+                setDetallesGmpAgrupados({ levante: gmpLevanteDetalles, ceba: gmpCebaDetalles });
 
                 const maxIdx = Math.max(
                     ...Object.keys(gmpLevanteAgrupado).map(Number),
@@ -589,8 +631,21 @@ export default function Dashboard() {
                                             dataKey="gmpLevante"
                                             stroke="var(--warning)"
                                             strokeWidth={4}
-                                            dot={{ r: 6, fill: '#ff9800', stroke: 'white', strokeWidth: 2 }}
-                                            activeDot={{ r: 8 }}
+                                            dot={{ r: 6, fill: '#ff9800', stroke: 'white', strokeWidth: 2, cursor: 'pointer' }}
+                                            activeDot={{ 
+                                                r: 8, 
+                                                onClick: (_e: any, payload: any) => {
+                                                    const num = payload.payload.numero;
+                                                    setSelectedDetail({
+                                                        label: payload.payload.label,
+                                                        etapa: 'Levante',
+                                                        items: detallesGmpAgrupados.levante[num] || []
+                                                    });
+                                                    setDetailModalVisible(true);
+                                                    setSortCol('gmp');
+                                                    setSortOrder('asc');
+                                                }
+                                            }}
                                             connectNulls
                                         />
                                         <Line
@@ -599,8 +654,21 @@ export default function Dashboard() {
                                             dataKey="gmpCeba"
                                             stroke="var(--success)"
                                             strokeWidth={4}
-                                            dot={{ r: 6, fill: '#4caf50', stroke: 'white', strokeWidth: 2 }}
-                                            activeDot={{ r: 8 }}
+                                            dot={{ r: 6, fill: '#4caf50', stroke: 'white', strokeWidth: 2, cursor: 'pointer' }}
+                                            activeDot={{ 
+                                                r: 8, 
+                                                onClick: (_e: any, payload: any) => {
+                                                    const num = payload.payload.numero;
+                                                    setSelectedDetail({
+                                                        label: payload.payload.label,
+                                                        etapa: 'Ceba',
+                                                        items: detallesGmpAgrupados.ceba[num] || []
+                                                    });
+                                                    setDetailModalVisible(true);
+                                                    setSortCol('gmp');
+                                                    setSortOrder('asc');
+                                                }
+                                            }}
                                             connectNulls
                                         />
                                     </LineChart>
@@ -709,6 +777,92 @@ export default function Dashboard() {
                                             </div>
                                         ))
                                     )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {/* Modal de Detalle de Animales (GMP por punto) */}
+                    {detailModalVisible && selectedDetail && (
+                        <div className="modal-overlay" onClick={() => setDetailModalVisible(false)}>
+                            <div className="modal-content" style={{ maxWidth: '900px', height: 'auto', maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
+                                <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <h2 style={{ margin: 0, color: 'white' }}>Detalle de Pesajes: {selectedDetail.label}</h2>
+                                        <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)' }}>Etapa: <strong style={{color: selectedDetail.etapa === 'Levante' ? 'var(--warning)' : 'var(--success)'}}>{selectedDetail.etapa}</strong> | {selectedDetail.items.length} animales aportando.</p>
+                                    </div>
+                                    <button onClick={() => setDetailModalVisible(false)} className="btn-icon" style={{fontSize: '1.5rem'}}>&times;</button>
+                                </div>
+                                <div style={{ padding: '24px', overflowY: 'auto' }}>
+                                    <div className="table-container">
+                                        <table style={{ minWidth: '800px' }}>
+                                            <thead>
+                                                <tr>
+                                                    <th>Chapeta</th>
+                                                    <th 
+                                                        onClick={() => {
+                                                            if (sortCol === 'propietario') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                                                            else { setSortCol('propietario'); setSortOrder('asc'); }
+                                                        }}
+                                                        style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                                    >
+                                                        Propietario {sortCol === 'propietario' && (sortOrder === 'asc' ? '↑' : '↓')}
+                                                    </th>
+                                                    <th>Fecha Ant.</th>
+                                                    <th>Peso Ant.</th>
+                                                    <th>Fecha Actual</th>
+                                                    <th>Peso Actual</th>
+                                                    <th 
+                                                        onClick={() => {
+                                                            if (sortCol === 'gmp') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                                                            else { setSortCol('gmp'); setSortOrder('asc'); }
+                                                        }}
+                                                        style={{ textAlign: 'right', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                                    >
+                                                        GMP (kg/mes) {sortCol === 'gmp' && (sortOrder === 'asc' ? '↑' : '↓')}
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {[...selectedDetail.items]
+                                                    .sort((a, b) => {
+                                                        if (sortCol === 'propietario') {
+                                                            const valA = a.propietario.toLowerCase();
+                                                            const valB = b.propietario.toLowerCase();
+                                                            return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                                                        } else {
+                                                            return sortOrder === 'asc' ? a.gmp - b.gmp : b.gmp - a.gmp;
+                                                        }
+                                                    })
+                                                    .map((item, idx) => (
+                                                    <tr key={idx} className="table-row-hover">
+                                                        <td style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>#{item.chapeta}</td>
+                                                        <td style={{ fontSize: '0.85rem' }}>{item.propietario}</td>
+                                                        <td>{item.fechaAnterior}</td>
+                                                        <td>{item.pesoAnterior} kg</td>
+                                                        <td>{item.fechaActual}</td>
+                                                        <td style={{ fontWeight: 'bold', color: 'white' }}>{item.pesoActual} kg</td>
+                                                        <td style={{ 
+                                                            textAlign: 'right', 
+                                                            fontWeight: 'bold', 
+                                                            color: item.gmp < 10 ? 'var(--error)' : 'var(--success)' 
+                                                        }}>
+                                                            {item.gmp}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {selectedDetail.items.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                                            No hay datos detallados para este punto (Datos de ejemplo o históricos insuficientes).
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div style={{ padding: '20px 24px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'right' }}>
+                                    <button onClick={() => setDetailModalVisible(false)} style={{ width: 'auto', padding: '10px 24px' }}>Cerrar</button>
                                 </div>
                             </div>
                         </div>
