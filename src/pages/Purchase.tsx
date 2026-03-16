@@ -168,17 +168,7 @@ export default function Purchase() {
             const { data: nuevosAnimales, error } = await supabase.from('animales').insert(records).select();
             if (error) throw error;
 
-            if (nuevosAnimales && nuevosAnimales.length > 0) {
-                const pesajes = nuevosAnimales.map(animal => ({
-                    id_animal: animal.id,
-                    peso: animal.peso_ingreso,
-                    fecha: animal.fecha_ingreso,
-                    etapa: animal.etapa
-                }));
-                await supabase.from('registros_pesaje').insert(pesajes);
-            }
-
-            setMsjExito(`¡Éxito! Se crearon ${records.length} animales con su pesaje inicial.`);
+            setMsjExito(`¡Éxito! Se crearon ${records.length} animales correctamente.`);
 
             // Guardar para el reporte antes de limpiar
             setReportData({

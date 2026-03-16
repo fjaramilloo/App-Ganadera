@@ -142,13 +142,7 @@ export default function Weighing() {
 
             if (error) throw error;
 
-            // REGISTRO DE PESAJE INICIAL
-            await supabase.from('registros_pesaje').insert({
-                id_animal: data.id,
-                peso: pesoFloat,
-                fecha: fechaIngresoNueva,
-                etapa: 'levante'
-            });
+            setMsjExito(`¡Animal #${chapeta} creado exitosamente!`);
 
             setMsjExito(`¡Animal #${chapeta} creado exitosamente! Su peso inicial ha sido registrado.`);
 
@@ -187,8 +181,16 @@ export default function Weighing() {
 
             let gdpCalculada = 0;
             if (animal.ultimo_peso && animal.fecha_ultimo_peso) {
-                const diffDias = differenceInDays(new Date(), new Date(animal.fecha_ultimo_peso)) || 1;
-                gdpCalculada = (pesoFloat - animal.ultimo_peso) / diffDias;
+                const fechaHoy = new Date().toISOString().split('T')[0];
+                const fechaUltimo = animal.fecha_ultimo_peso;
+                
+                // Si es el mismo día, no calculamos ganancia para evitar errores de 0 GDP
+                if (fechaHoy !== fechaUltimo) {
+                    const diffDias = differenceInDays(new Date(fechaHoy), new Date(fechaUltimo));
+                    if (diffDias > 0) {
+                        gdpCalculada = (pesoFloat - animal.ultimo_peso) / diffDias;
+                    }
+                }
             }
 
             const { error } = await supabase.from('registros_pesaje').insert({
