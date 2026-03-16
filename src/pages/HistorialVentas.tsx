@@ -91,6 +91,8 @@ export default function HistorialVentas() {
                     peso_ingreso,
                     fecha_ingreso,
                     etapa,
+                    fecha_ingreso_ceba,
+                    peso_ingreso_ceba,
                     potreros (nombre),
                     registros_pesaje (
                         peso,
@@ -122,7 +124,7 @@ export default function HistorialVentas() {
                     const registroCeba = (animal.registros_pesaje || [])
                         .filter((r: any) => r.etapa === 'ceba')
                         .sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime())[0];
-                    const fechaInicioCeba = registroCeba ? registroCeba.fecha : (animal.etapa === 'ceba' ? animal.fecha_ingreso : null);
+                    const fechaInicioCeba = animal.fecha_ingreso_ceba || (registroCeba ? registroCeba.fecha : (animal.etapa === 'ceba' ? animal.fecha_ingreso : null));
 
                     const animalRep: AnimalVentaParaReporte = {
                         numero_chapeta: animal.numero_chapeta,

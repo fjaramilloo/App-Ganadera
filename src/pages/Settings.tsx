@@ -587,6 +587,7 @@ export default function Settings() {
 
                     const records: any[] = [];
                     const errores: string[] = [];
+                    const cebaUpdates = new Map<string, { fecha: string, peso: number }>();
 
                     results.data.forEach((row: any, index: number) => {
                         const anim = mapAnimales.get(row.numero_chapeta);
@@ -599,6 +600,13 @@ export default function Settings() {
                         const fecha = parseFechaCol(row.fecha) || new Date().toISOString().split('T')[0];
                         const potreroNombre = row.potrero?.toString().toLowerCase().trim();
 
+
+                        // Nueva lógica: Priorizar etapa del CSV, sino usar la actual del animal
+                        const etapaCSV = row.etapa?.toString().toLowerCase().trim();
+                        let etapaFinal = (etapaCSV === 'cria' || etapaCSV === 'levante' || etapaCSV === 'ceba') 
+                            ? etapaCSV 
+                            : anim.etapa;
+
                         if (isNaN(peso) || peso <= 0) {
                             errores.push(`Fila ${index + 2}: Peso inválido.`);
                             return;
@@ -608,9 +616,17 @@ export default function Settings() {
                             id_animal: anim.id,
                             peso,
                             fecha,
-                            etapa: anim.etapa,
+                            etapa: etapaFinal,
                             id_potrero: potreroNombre ? mapPotreros.get(potreroNombre) : null
                         });
+
+                        // Si el pesaje es de ceba, marcar al animal para actualizar su etapa actual e ingreso a ceba
+                        if (etapaFinal === 'ceba' && anim.etapa !== 'ceba') {
+                            const actual = cebaUpdates.get(anim.id);
+                            if (!actual || fecha < actual.fecha) {
+                                cebaUpdates.set(anim.id, { fecha, peso });
+                            }
+                        }
                     });
 
                     if (records.length === 0) {
@@ -645,6 +661,21 @@ export default function Settings() {
                     // 3. Insertar los pesajes
                     const { error: insertError } = await supabase.from('registros_pesaje').insert(records);
                     if (insertError) throw insertError;
+
+                    // 4. Actualizar etapa de animales que pasaron a ceba
+                    if (cebaUpdates.size > 0) {
+                        for (const [id, data] of cebaUpdates.entries()) {
+                            await supabase
+                                .from('animales')
+                                .update({ 
+                                    etapa: 'ceba', 
+                                    ok_ceba: true,
+                                    fecha_ingreso_ceba: data.fecha,
+                                    peso_ingreso_ceba: data.peso
+                                })
+                                .eq('id', id);
+                        }
+                    }
 
                     let msg = `¡Carga exitosa! Se registraron ${records.length} seguimientos de pesaje.`;
                     if (animalesActualizados > 0) {

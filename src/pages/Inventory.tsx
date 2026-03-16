@@ -22,6 +22,8 @@ interface Animal {
     etapa: string;
     peso_ingreso: number;
     fecha_ingreso: string;
+    fecha_ingreso_ceba?: string | null;
+    peso_ingreso_ceba?: number | null;
     estado: string;
     id_potrero_actual?: string | null;
     potreros?: { nombre: string } | null;

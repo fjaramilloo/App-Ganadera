@@ -335,6 +335,8 @@ export default function Potreradas() {
                     peso_ingreso,
                     fecha_ingreso,
                     etapa,
+                    fecha_ingreso_ceba,
+                    peso_ingreso_ceba,
                     id_potrero_actual,
                     potreros (nombre),
                     registros_pesaje (
@@ -366,12 +368,17 @@ export default function Potreradas() {
                 let fechaIngresoEtapa = null;
                 let pesoIngresoEtapa = null;
 
-                if (registrosEtapa.length > 0) {
-                    fechaIngresoEtapa = registrosEtapa[0].fecha;
-                    pesoIngresoEtapa = registrosEtapa[0].peso;
-                } else if (a.etapa?.toLowerCase() === p.etapa.toLowerCase()) {
-                    fechaIngresoEtapa = a.fecha_ingreso;
-                    pesoIngresoEtapa = a.peso_ingreso;
+                if (p.etapa === 'ceba') {
+                    fechaIngresoEtapa = a.fecha_ingreso_ceba || (registrosEtapa[0]?.fecha || (a.etapa === 'ceba' ? a.fecha_ingreso : null));
+                    pesoIngresoEtapa = a.peso_ingreso_ceba || (registrosEtapa[0]?.peso || (a.etapa === 'ceba' ? a.peso_ingreso : null));
+                } else {
+                    if (registrosEtapa.length > 0) {
+                        fechaIngresoEtapa = registrosEtapa[0].fecha;
+                        pesoIngresoEtapa = registrosEtapa[0].peso;
+                    } else if (a.etapa?.toLowerCase() === p.etapa.toLowerCase()) {
+                        fechaIngresoEtapa = a.fecha_ingreso;
+                        pesoIngresoEtapa = a.peso_ingreso;
+                    }
                 }
 
                 const pesajesMap: Record<string, number> = {};

@@ -1,6 +1,6 @@
-numero_chapeta,fecha(Año-Mes-Día),peso,potrero
-001,2023-11-15,185.5,Potrero 1
-001,2023-12-15,202.0,Potrero 1
-002,2023-12-01,235.0,Potrero 2
-003,2024-01-20,470.5,Potrero 3
-004,2024-02-10,210.0,Potrero 1
+numero_chapeta,fecha(Año-Mes-Día),peso,potrero,etapa
+001,2023-11-15,185.5,Potrero 1,levante
+001,2023-12-15,202.0,Potrero 1,levante
+002,2023-12-01,235.0,Potrero 2,levante
+003,2024-01-20,470.5,Potrero 3,ceba
+004,2024-02-10,210.0,Potrero 1,levante
