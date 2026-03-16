@@ -466,8 +466,13 @@ export default function Settings() {
                     const rows = results.data.map((row: any) => {
                         const potreradaNombre = row.potrerada?.toString().toLowerCase().trim();
                         const potreroNombre = row.potrero?.toString().toLowerCase().trim();
-
                         const etapa = row.etapa?.toLowerCase() || 'levante';
+                        
+                        // Mapeo flexible de fechas
+                        const rawFecha = row.fecha_ingreso || row['fecha_ingreso(Año-Mes-Día)'] || row.fecha_ingreso_ceba || row.fecha || row.Fecha;
+                        const fechaFinal = parseFechaCol(rawFecha) || new Date().toISOString().split('T')[0];
+                        const pesoIngreso = parseFloat(row.peso_ingreso) || 0;
+
                         return {
                             id_finca: fincaId,
                             numero_chapeta: row.numero_chapeta?.toString().trim(),
@@ -475,13 +480,18 @@ export default function Settings() {
                             especie: row.especie?.toLowerCase() || 'bovino',
                             sexo: row.sexo?.toUpperCase() || 'M',
                             etapa: etapa,
-                            fecha_ingreso: parseFechaCol(row.fecha_ingreso || row['fecha_ingreso(Año-Mes-Día)']) || new Date().toISOString().split('T')[0],
-                            peso_ingreso: parseFloat(row.peso_ingreso) || 0,
+                            fecha_ingreso: fechaFinal,
+                            peso_ingreso: pesoIngreso,
                             id_potrerada: potreradaNombre ? (mapPotreradas.get(potreradaNombre) ?? null) : null,
                             id_potrero_actual: potreroNombre ? (mapPotreros.get(potreroNombre) ?? null) : null,
                             estado: 'activo',
-                            // Si el animal está en ceba, nos aseguramos de que no tenga la marca de "ok_ceba"
-                            ok_ceba: etapa === 'ceba' ? false : undefined
+                            // Nuevos campos para trazabilidad de ceba
+                            fecha_ingreso_ceba: etapa === 'ceba' ? fechaFinal : null,
+                            peso_ingreso_ceba: etapa === 'ceba' ? pesoIngreso : null,
+                            ok_ceba: false,
+                            // Campos opcionales de compra
+                            proveedor_compra: row.proveedor || row.proveedor_compra || null,
+                            observaciones_compra: row.observaciones || row.observaciones_compra || null
                         };
                     });
 
