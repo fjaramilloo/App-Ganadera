@@ -17,7 +17,6 @@ interface Rotacion {
 
 export default function Rotations() {
     const { fincaId, role } = useAuth();
-    const [loading, setLoading] = useState(false);
     const [msjError, setMsjError] = useState('');
 
     const [rotaciones, setRotaciones] = useState<Rotacion[]>([]);
@@ -40,7 +39,6 @@ export default function Rotations() {
 
     const fetchData = async () => {
         if (!fincaId) return;
-        setLoading(true);
         try {
             const { data: rotData } = await supabase
                 .from('rotaciones')
@@ -57,7 +55,7 @@ export default function Rotations() {
             if (rotData) setRotaciones(rotData);
             if (potData) setPotreros(potData);
         } finally {
-            setLoading(false);
+            // fetchData fin
         }
     };
 
@@ -268,7 +266,17 @@ export default function Rotations() {
                                             <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
                                                 <td style={{ padding: '12px 24px' }}>
                                                     {editingPot === p.id ? (
-                                                        <input style={{ margin: 0, padding: '4px 8px' }} value={editPotForm.nombre} onChange={e => setEditPotForm({...editPotForm, nombre: e.target.value})} />
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            <input style={{ margin: 0, padding: '4px 8px' }} value={editPotForm.nombre} onChange={e => setEditPotForm({...editPotForm, nombre: e.target.value})} placeholder="Nombre" />
+                                                            <select 
+                                                                style={{ margin: 0, padding: '4px 8px', fontSize: '0.8rem' }}
+                                                                value={editPotForm.id_rotacion}
+                                                                onChange={e => setEditPotForm({...editPotForm, id_rotacion: e.target.value})}
+                                                            >
+                                                                <option value="">Sin Rotación</option>
+                                                                {rotaciones.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                                                            </select>
+                                                        </div>
                                                     ) : (
                                                         <span style={{ fontWeight: 500, color: 'white' }}>{p.nombre}</span>
                                                     )}
@@ -328,11 +336,45 @@ export default function Rotations() {
                                 <tbody>
                                     {sinRotacion.map(p => (
                                         <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                                            <td style={{ padding: '12px 24px', color: 'var(--text-muted)' }}>{p.nombre}</td>
-                                            <td style={{ padding: '12px 24px', textAlign: 'right', color: 'var(--text-muted)' }}>{p.area_hectareas?.toFixed(2)}</td>
+                                            <td style={{ padding: '12px 24px' }}>
+                                                {editingPot === p.id ? (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                        <input style={{ margin: 0, padding: '4px 8px' }} value={editPotForm.nombre} onChange={e => setEditPotForm({...editPotForm, nombre: e.target.value})} placeholder="Nombre" />
+                                                        <select 
+                                                            style={{ margin: 0, padding: '4px 8px', fontSize: '0.8rem' }}
+                                                            value={editPotForm.id_rotacion}
+                                                            onChange={e => setEditPotForm({...editPotForm, id_rotacion: e.target.value})}
+                                                        >
+                                                            <option value="">Sin Rotación</option>
+                                                            {rotaciones.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                                                        </select>
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ color: 'var(--text-muted)' }}>{p.nombre}</span>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '12px 24px', textAlign: 'right' }}>
+                                                {editingPot === p.id ? (
+                                                    <input style={{ margin: 0, padding: '4px 8px', textAlign: 'right', width: '80px' }} type="number" step="0.01" value={editPotForm.area} onChange={e => setEditPotForm({...editPotForm, area: e.target.value})} />
+                                                ) : (
+                                                    <span style={{ color: 'var(--text-muted)' }}>{p.area_hectareas?.toFixed(2)}</span>
+                                                )}
+                                            </td>
                                             {isAdmin && (
                                                 <td style={{ padding: '12px 24px', textAlign: 'right' }}>
-                                                    <button onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: '' }); }} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.2)' }}><Edit2 size={16} /></button>
+                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                        {editingPot === p.id ? (
+                                                            <>
+                                                                <button onClick={() => handleUpdatePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none' }}><Check size={18} color="var(--success)" /></button>
+                                                                <button onClick={() => setEditingPot(null)} style={{ width: 'auto', padding: '4px', background: 'none' }}><X size={18} color="var(--text-muted)" /></button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button onClick={() => { setEditingPot(p.id); setEditPotForm({ nombre: p.nombre, area: p.area_hectareas.toString(), id_rotacion: '' }); }} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.2)' }}><Edit2 size={16} /></button>
+                                                                <button onClick={() => deletePotrero(p.id)} style={{ width: 'auto', padding: '4px', background: 'none', color: 'rgba(255,255,255,0.1)' }}><Trash2 size={16} /></button>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             )}
                                         </tr>
