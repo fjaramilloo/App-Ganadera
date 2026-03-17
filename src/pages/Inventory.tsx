@@ -25,9 +25,11 @@ interface Animal {
     fecha_ingreso_ceba?: string | null;
     peso_ingreso_ceba?: number | null;
     estado: string;
-    id_potrero_actual?: string | null;
+    id_potrerada?: string | null;
     potreros?: { nombre: string } | null;
+    potreradas?: { nombre: string } | null;
     potreroNombre?: string;
+    potreradaNombre?: string;
     diasDesdeUltimoPesaje?: number;
     registros_pesaje: Pesaje[];
 }
@@ -39,6 +41,7 @@ export default function Inventory() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterEtapa, setFilterEtapa] = useState('');
     const [filterPotrero, setFilterPotrero] = useState('');
+    const [filterPotrerada, setFilterPotrerada] = useState('');
     const [filterPropietario, setFilterPropietario] = useState('');
     
     // sorting states
@@ -74,6 +77,8 @@ export default function Inventory() {
             .from('animales')
             .select(`
                 *,
+                potreradas ( nombre ),
+                potreros ( nombre ),
                 registros_pesaje (
                     peso,
                     fecha,
@@ -99,16 +104,29 @@ export default function Inventory() {
                 const refTruncada = new Date(fechaReferencia);
                 refTruncada.setHours(0, 0, 0, 0);
                 const diasDesdeUltimoPesaje = differenceInDays(hoy, refTruncada);
-                const potreroDelUltimoPesaje = ultimoP?.potreros?.nombre || 'Sin potrero';
+                const potreroActual = a.potreros?.nombre || 'Sin potrero';
 
                 return {
                     ...a,
                     registros_pesaje: registros,
-                    potreroNombre: potreroDelUltimoPesaje,
+                    potreroNombre: potreroActual,
+                    potreradaNombre: a.potreradas?.nombre || 'Sin potrerada',
                     diasDesdeUltimoPesaje
                 };
             });
             setAnimales(dataProcesada);
+
+            // 3. Traer los umbrales de la configuración
+            const { data: configData } = await supabase
+                .from('configuracion_kpi')
+                .select('umbral_medio_gmp, umbral_alto_gmp')
+                .eq('id_finca', fincaId)
+                .single();
+            
+            if (configData) {
+                if (configData.umbral_alto_gmp) setUmbralAltoGmp(configData.umbral_alto_gmp);
+                if (configData.umbral_medio_gmp) setUmbralMedioGmp(configData.umbral_medio_gmp);
+            }
         }
         setLoading(false);
     };
@@ -174,11 +192,13 @@ export default function Inventory() {
     const sortedAndFilteredAnimals = animales
         .filter(a => {
             const matchesSearch = a.numero_chapeta.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                a.nombre_propietario.toLowerCase().includes(searchTerm.toLowerCase());
+                a.nombre_propietario.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (a.potreradaNombre || '').toLowerCase().includes(searchTerm.toLowerCase());
             const matchesEtapa = filterEtapa ? a.etapa === filterEtapa : true;
             const matchesPotrero = filterPotrero ? a.potreroNombre === filterPotrero : true;
+            const matchesPotrerada = filterPotrerada ? a.potreradaNombre === filterPotrerada : true;
             const matchesPropietario = filterPropietario ? a.nombre_propietario === filterPropietario : true;
-            return matchesSearch && matchesEtapa && matchesPotrero && matchesPropietario;
+            return matchesSearch && matchesEtapa && matchesPotrero && matchesPotrerada && matchesPropietario;
         })
         .sort((a, b) => {
             let res = 0;
@@ -188,11 +208,14 @@ export default function Inventory() {
                 res = a.nombre_propietario.localeCompare(b.nombre_propietario);
             } else if (sortBy === 'dias_pesaje') {
                 res = (a.diasDesdeUltimoPesaje || 0) - (b.diasDesdeUltimoPesaje || 0);
+            } else if (sortBy === 'potrerada') {
+                res = (a.potreradaNombre || '').localeCompare(b.potreradaNombre || '');
             }
             return sortOrder === 'asc' ? res : -res;
         });
 
     const uniquePotreros = Array.from(new Set(animales.map(a => a.potreroNombre))).filter(p => p !== 'Sin potrero' && p);
+    const uniquePotreradas = Array.from(new Set(animales.map(a => a.potreradaNombre))).filter(p => p !== 'Sin potrerada' && p);
     const uniquePropietarios = Array.from(new Set(animales.map(a => a.nombre_propietario))).filter(Boolean);
 
     // Calcular GDP Promedio de todos los animales para la estimación de peso de hoy
@@ -219,50 +242,95 @@ export default function Inventory() {
                     </button>
                 )}
             </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(46, 125, 50, 0.1)', border: '1px solid rgba(46, 125, 50, 0.2)' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Total Animales</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>{animales.length}</div>
+                </div>
+                <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(255, 179, 0, 0.05)', border: '1px solid rgba(255, 179, 0, 0.1)' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Potreradas</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--secondary)' }}>{uniquePotreradas.length}</div>
+                </div>
+                <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Potreros en Uso</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{uniquePotreros.length}</div>
+                </div>
+                <div className="card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(244, 67, 54, 0.05)', border: '1px solid rgba(244, 67, 54, 0.1)' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Alertas (GDP Bajo)</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--error)' }}>
+                        {animales.filter(a => (a.registros_pesaje?.length || 0) > 1 && ((a.registros_pesaje[0].peso - a.peso_ingreso) / (differenceInDays(new Date(a.registros_pesaje[0].fecha), new Date(a.fecha_ingreso)) || 1) * 30) <= umbralMedioGmp).length}
+                    </div>
+                </div>
+            </div>
 
-            <div className="glass-panel" style={{ marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
-                <div style={{ flex: '1 1 300px', position: 'relative' }}>
+            <div className="glass-panel" style={{ marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+                <div style={{ flex: '2 1 300px', position: 'relative' }}>
                     <Search size={18} style={{ position: 'absolute', left: '12px', top: '16px', color: 'var(--text-muted)' }} />
                     <input
                         type="text"
-                        placeholder="Buscar por chapeta o propietario..."
+                        placeholder="Buscar por chapeta, propietario o potrerada..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{ marginBottom: 0, paddingLeft: '40px' }}
                     />
                 </div>
-                <div style={{ flex: '1 1 180px' }}>
+                <div style={{ flex: '1 1 140px' }}>
                     <select
                         value={filterEtapa}
                         onChange={(e) => setFilterEtapa(e.target.value)}
                         style={{ marginBottom: 0 }}
                     >
-                        <option value="">Todas las etapas</option>
+                        <option value="">-- Etapa --</option>
                         <option value="cria">Cría</option>
                         <option value="levante">Levante</option>
                         <option value="ceba">Ceba</option>
                     </select>
                 </div>
-                <div style={{ flex: '1 1 180px' }}>
+                <div style={{ flex: '1 1 140px' }}>
+                    <select
+                        value={filterPotrerada}
+                        onChange={(e) => setFilterPotrerada(e.target.value)}
+                        style={{ marginBottom: 0 }}
+                    >
+                        <option value="">-- Potrerada --</option>
+                        {uniquePotreradas.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
+                    </select>
+                </div>
+                <div style={{ flex: '1 1 140px' }}>
                     <select
                         value={filterPotrero}
                         onChange={(e) => setFilterPotrero(e.target.value)}
                         style={{ marginBottom: 0 }}
                     >
-                        <option value="">Todos los potreros</option>
+                        <option value="">-- Potrero --</option>
                         {uniquePotreros.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
                     </select>
                 </div>
-                <div style={{ flex: '1 1 180px' }}>
+                <div style={{ flex: '1 1 140px' }}>
                     <select
                         value={filterPropietario}
                         onChange={(e) => setFilterPropietario(e.target.value)}
                         style={{ marginBottom: 0 }}
                     >
-                        <option value="">Todos los propietarios</option>
+                        <option value="">-- Propietario --</option>
                         {uniquePropietarios.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
                     </select>
                 </div>
+                {(searchTerm || filterEtapa || filterPotrero || filterPotrerada || filterPropietario) && (
+                    <button 
+                        onClick={() => {
+                            setSearchTerm('');
+                            setFilterEtapa('');
+                            setFilterPotrero('');
+                            setFilterPotrerada('');
+                            setFilterPropietario('');
+                        }}
+                        style={{ width: 'auto', background: 'transparent', color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)', padding: '12px 16px' }}
+                    >
+                        Limpiar
+                    </button>
+                )}
             </div>
 
             <div className="glass-panel" style={{ overflowX: 'auto', padding: 0 }}>
@@ -322,8 +390,9 @@ export default function Inventory() {
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             <div style={{ fontWeight: '500' }}>{animal.nombre_propietario}</div>
-                                            <div style={{ fontSize: '0.8rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                {animal.etapa} <span style={{ color: 'var(--primary-light)', paddingLeft: '4px', fontStyle: 'italic', textTransform: 'capitalize' }}>({animal.potreroNombre})</span>
+                                             <div style={{ fontSize: '0.8rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                {animal.etapa} • <span style={{ color: 'var(--primary-light)', fontStyle: 'italic', textTransform: 'capitalize' }}>{animal.potreradaNombre}</span>
+                                                <span style={{ marginLeft: '8px', opacity: 0.8 }}>({animal.potreroNombre})</span>
                                             </div>
                                         </td>
                                         <td style={{ padding: '16px' }}>
@@ -480,8 +549,8 @@ export default function Inventory() {
                                     <span style={{ color: 'var(--primary)', marginRight: '8px' }}>#</span>
                                     {selectedAnimal.numero_chapeta}
                                 </h2>
-                                <p style={{ color: 'var(--text-muted)', margin: '4px 0 0 0', textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '0.5px' }}>
-                                    {selectedAnimal.etapa} • {selectedAnimal.nombre_propietario}
+                                 <p style={{ color: 'var(--text-muted)', margin: '4px 0 0 0', textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '0.5px' }}>
+                                    {selectedAnimal.etapa} • {selectedAnimal.potreradaNombre} • {selectedAnimal.nombre_propietario}
                                 </p>
                             </div>
 

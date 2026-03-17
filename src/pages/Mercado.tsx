@@ -184,15 +184,14 @@ export default function Mercado() {
 
             if (errUpdate) throw new Error('Error al actualizar animales: ' + errUpdate.message);
 
-            // 3. Registrar movimiento de potrero
+            // 3. Registrar un único movimiento de potrero para la nueva potrerada
             const hoy = new Date().toISOString().split('T')[0];
-            const movimientos = ids.map(_id => ({
+            await supabase.from('movimientos_potreros').insert({
                 id_finca: fincaId,
                 id_potrerada: nuevaPotrerada.id,
                 id_potrero: potreroSeleccionado,
                 fecha_entrada: hoy
-            }));
-            await supabase.from('movimientos_potreros').insert(movimientos);
+            });
 
             setShowModal(false);
             setMsjExito(`¡Potrerada "${nombrePotrerada}" creada con ${ids.length} animales en etapa Ceba!`);
