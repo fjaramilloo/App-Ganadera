@@ -34,11 +34,7 @@ interface AnimalPotrero {
     estado?: string;
 }
 
-interface ChartData {
-    fecha: string;
-    pesoPromedio: number;
-    gmpPromedio: number;
-}
+
 
 export default function Potreradas() {
     const { fincaId, role } = useAuth();
@@ -985,7 +981,9 @@ export default function Potreradas() {
                                                     <MapPin size={14} color="var(--primary)" /> <span className="mobile-hide">Potrero:</span> <strong style={{color: 'var(--text)'}}>{detailData.potreroActual}</strong>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                                                    <TrendingUp size={14} color="var(--success)" /> <span className="mobile-hide">GMP:</span> <strong style={{color: 'var(--success)'}}>{detailData.gmpPromedioGrupo.toFixed(1)}</strong>
+                                                    <TrendingUp size={14} color="var(--success)" /> <span className="mobile-hide">GMP:</span> <strong style={{color: 'var(--success)'}}>
+                                                        {(sortedAnimals.filter(a => a.hasCalculatedGmp).reduce((acc, curr) => acc + (curr.gmp || 0), 0) / (sortedAnimals.filter(a => a.hasCalculatedGmp).length || 1)).toFixed(1)}
+                                                    </strong>
                                                 </div>
                                             </div>
                                         </div>
@@ -1158,14 +1156,14 @@ export default function Potreradas() {
                                                     </tr>
                                                 )}
                                             </tbody>
-                                            {detailData.animales.length > 0 && (() => {
-                                                const totalKilos = detailData.animales.reduce((sum, a) => sum + (a.pesoActual || 0), 0);
-                                                const pesoPromedio = totalKilos / detailData.animales.length;
+                                            {sortedAnimals.length > 0 && (() => {
+                                                const totalKilos = sortedAnimals.reduce((sum, a) => sum + (a.pesoActual || 0), 0);
+                                                const pesoPromedio = totalKilos / sortedAnimals.length;
                                                 return (
                                                     <tfoot>
                                                         <tr style={{ borderTop: '2px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.04)' }}>
                                                             <td colSpan={4 + detailData.fechasColumnas.length - 1} style={{ padding: '14px 16px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                                {detailData.animales.length} animales &nbsp;|&nbsp; Total Kilos:
+                                                                {sortedAnimals.length} animales &nbsp;|&nbsp; Total Kilos:
                                                             </td>
                                                             <td style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', color: 'var(--primary-light)', fontSize: '1rem' }}>
                                                                 {Math.round(totalKilos).toLocaleString('es-CO')} kg

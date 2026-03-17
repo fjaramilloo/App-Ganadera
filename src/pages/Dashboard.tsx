@@ -114,140 +114,89 @@ export default function Dashboard() {
     }, {} as Record<string, any[]>);
 
     useEffect(() => {
-        async function fetchDashboardData() {
+        const fetchDashboardData = async () => {
             if (!fincaId) return;
             setLoading(true);
+            try {
+                // 1. Total de Animales
+                const { count: totalAnimales } = await supabase
+                    .from('animales')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('id_finca', fincaId)
+                    .eq('estado', 'activo');
 
-            // 1. Total de Animales
-            const { count: totalAnimales } = await supabase
-                .from('animales')
-                .select('*', { count: 'exact', head: true })
-                .eq('id_finca', fincaId)
-                .eq('estado', 'activo');
+                // 2. Traer todos los animales activos para calcular los KPIs
+                const { data: animales } = await supabase
+                    .from('animales')
+                    .select('id, etapa, fecha_ingreso, peso_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba')
+                    .eq('id_finca', fincaId)
+                    .eq('estado', 'activo');
 
-            // 2. Traer todos los animales activos para calcular los KPIs
-            const { data: animales } = await supabase
-                .from('animales')
-                .select('id, etapa, fecha_ingreso, peso_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba')
-                .eq('id_finca', fincaId)
-                .eq('estado', 'activo');
+                // 2b. Traer TODOS los animales para la evolución histórica
+                const { data: todosAnimales } = await supabase
+                    .from('animales')
+                    .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, nombre_propietario, estado, fecha_ingreso_ceba, peso_ingreso_ceba')
+                    .eq('id_finca', fincaId);
 
-            // 2b. Traer TODOS los animales para la evolución histórica
-            const { data: todosAnimales } = await supabase
-                .from('animales')
-                .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, nombre_propietario, estado, fecha_ingreso_ceba, peso_ingreso_ceba')
-                .eq('id_finca', fincaId);
+                // 3. Traer los últimos pesajes para evolucion
+                const animalIds = (todosAnimales || []).map(a => a.id);
+                const { data: pesajes } = await supabase
+                    .from('registros_pesaje')
+                    .select('id_animal, peso, fecha, etapa, gdp_calculada')
+                    .in('id_animal', animalIds)
+                    .order('fecha', { ascending: true });
 
-            // 3. Traer los últimos pesajes para evolucion
-            const animalIds = todosAnimales?.map(a => a.id) || [];
-            const { data: pesajes } = await supabase
-                .from('registros_pesaje')
-                .select('id_animal, peso, fecha, etapa, gdp_calculada')
-                .in('id_animal', animalIds)
-                .order('fecha', { ascending: true });
+                // 3b. Traer registros de lluvia
+                const { data: lluvias } = await supabase
+                    .from('registros_lluvia')
+                    .select('fecha, milimetros')
+                    .eq('id_finca', fincaId)
+                    .order('fecha', { ascending: true });
 
-            // 3b. Traer registros de lluvia
-            const { data: lluvias } = await supabase
-                .from('registros_lluvia')
-                .select('fecha, milimetros')
-                .eq('id_finca', fincaId)
-                .order('fecha', { ascending: true });
+                // 4. Animales fallecidos este año
+                const anioActual = new Date().getFullYear();
+                const fechaInicioAnio = `${anioActual}-01-01`;
+                const { count: muertosAnio } = await supabase
+                    .from('animales')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('id_finca', fincaId)
+                    .eq('estado', 'muerto')
+                    .gte('fecha_muerte', fechaInicioAnio);
 
-            // 4. Animales fallecidos este año
-            const anioActual = new Date().getFullYear();
-            const fechaInicioAnio = `${anioActual}-01-01`;
-            const { count: muertosAnio } = await supabase
-                .from('animales')
-                .select('*', { count: 'exact', head: true })
-                .eq('id_finca', fincaId)
-                .eq('estado', 'muerto')
-                .gte('fecha_muerte', fechaInicioAnio);
+                // 5. Información de la Finca
+                const { data: finca } = await supabase
+                    .from('fincas')
+                    .select('nombre, proposito, area_aprovechable, ubicacion')
+                    .eq('id', fincaId)
+                    .single();
 
-            // 5. Información de la Finca
-            const { data: finca } = await supabase
-                .from('fincas')
-                .select('nombre, proposito, area_aprovechable, ubicacion')
-                .eq('id', fincaId)
-                .single();
+                if (finca) {
+                    setFincaInfo({
+                        nombre: finca.nombre,
+                        proposito: finca.proposito || 'No Definido',
+                        area_aprovechable: finca.area_aprovechable || 0,
+                        ubicacion: finca.ubicacion || 'Sin ubicación'
+                    });
+                }
 
-            if (finca) {
-                setFincaInfo({
-                    nombre: finca.nombre,
-                    proposito: finca.proposito || 'No Definido',
-                    area_aprovechable: finca.area_aprovechable || 0,
-                    ubicacion: finca.ubicacion || 'Sin ubicación'
-                });
-            }
+                // Los KPIs (stats) ahora se calculan en el useEffect reactivo al filtro
+                setStats(prev => ({
+                    ...prev,
+                    totalAnimales: totalAnimales || 0,
+                    totalMuertosAno: muertosAnio || 0
+                }));
 
-            if (animales && animales.length > 0) {
-                let totalDiasLevante = 0;
-                let countLevante = 0;
-                let gdpSumaLevante = 0;
-                let countGdpLevante = 0;
-                
-                let totalDiasCeba = 0;
-                let countCeba = 0;
-                let gdpSumaCeba = 0;
-                let countGdpCeba = 0;
-                
-                let gdpSumaTotal = 0;
-                let countGdpTotal = 0;
-
-                animales.forEach((animal: any) => {
-                    const etapaActual = animal.etapa?.toLowerCase();
-                    const misPesajes = pesajes?.filter((p: any) => p.id_animal === animal.id) || [];
-
-                    // KPI: Ganancia Mensual Promedio (GMP) por etapa
-                    if (etapaActual === 'levante') {
-                        const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso));
-                        totalDiasLevante += diffHoy;
-                        countLevante++;
-
-                        if (misPesajes.length > 0) {
-                            const ultimoPesaje = misPesajes[misPesajes.length - 1];
-                            const diffDias = differenceInDays(new Date(ultimoPesaje.fecha), new Date(animal.fecha_ingreso));
-                            if (diffDias > 0) {
-                                const gdp = (ultimoPesaje.peso - animal.peso_ingreso) / diffDias;
-                                gdpSumaLevante += gdp;
-                                countGdpLevante++;
-                                gdpSumaTotal += gdp;
-                                countGdpTotal++;
-                            }
-                        }
-                    } else if (etapaActual === 'ceba') {
-                        const inicioCeba = animal.fecha_ingreso_ceba || animal.fecha_ingreso;
-                        const pesoInicioCeba = animal.peso_ingreso_ceba || animal.peso_ingreso;
-                        
-                        const diffHoy = differenceInDays(new Date(), new Date(inicioCeba));
-                        totalDiasCeba += diffHoy;
-                        countCeba++;
-
-                        const pesajesCeba = misPesajes.filter((p: any) => p.etapa?.toLowerCase() === 'ceba');
-                        if (pesajesCeba.length > 0) {
-                            const ultimoCeba = pesajesCeba[pesajesCeba.length - 1];
-                            const diffDias = differenceInDays(new Date(ultimoCeba.fecha), new Date(inicioCeba));
-                            if (diffDias > 0) {
-                                const gdp = (ultimoCeba.peso - pesoInicioCeba) / diffDias;
-                                gdpSumaCeba += gdp;
-                                countGdpCeba++;
-                                gdpSumaTotal += gdp;
-                                countGdpTotal++;
-                            }
-                        }
-                    }
-                });
-
-                // KPI Peso Promedio Entrada (Lógica: >200 animales activos -> real, sino 360)
+                // KPI Peso Promedio Entrada
                 let pesoEntradaFinal = 360;
-                if (animales.length > 200) {
+                if (animales && animales.length > 200) {
                     const sumaEntrada = animales.reduce((acc: number, a: any) => acc + (parseFloat(a.peso_ingreso) || 0), 0);
                     pesoEntradaFinal = sumaEntrada / animales.length;
                 }
 
-                // KPI Peso Promedio Salida (Animales vendidos)
+                // KPI Peso Promedio Salida
                 const { data: vendidos } = await supabase
                     .from('animales')
-                    .select('id, peso_ingreso')
+                    .select('id')
                     .eq('id_finca', fincaId)
                     .eq('estado', 'vendido');
                 
@@ -270,26 +219,14 @@ export default function Dashboard() {
                     }
                 }
 
-                const gmpTotalCiclo = countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) * 30 : null;
-                const carneHaAno = (gmpTotalCiclo !== null && finca?.area_aprovechable && finca.area_aprovechable > 0)
-                    ? ((totalAnimales || 0) * gmpTotalCiclo * 12) / finca.area_aprovechable
-                    : null;
-
-                setStats({
-                    totalAnimales: totalAnimales || 0,
-                    promedioLevanteMeses: countLevante > 0 ? (totalDiasLevante / countLevante) / 30 : null,
-                    gmpLevante: countGdpLevante > 0 ? (gdpSumaLevante / countGdpLevante) * 30 : null,
-                    promedioCebaMeses: countCeba > 0 ? (totalDiasCeba / countCeba) / 30 : null,
-                    gmpCeba: countGdpCeba > 0 ? (gdpSumaCeba / countGdpCeba) * 30 : null,
-                    gmpTotal: gmpTotalCiclo,
-                    totalMuertosAno: muertosAnio || 0,
-                    produccionCarneHaAno: carneHaAno,
+                setStats(prev => ({
+                    ...prev,
                     cargaAnimal: (finca?.area_aprovechable && finca.area_aprovechable > 0)
                         ? (totalAnimales || 0) / finca.area_aprovechable
                         : 0,
                     pesoPromedioEntrada: pesoEntradaFinal,
                     pesoPromedioSalida: pesoSalidaFinal
-                });
+                }));
 
                 setRawData({
                     animales: (todosAnimales || []).map((a: any) => ({
@@ -299,7 +236,7 @@ export default function Dashboard() {
                     pesajes: pesajes || []
                 });
 
-                // Agrupar lluvias por mes
+                // Lluvias
                 const gruposLluvia: Record<string, number> = {};
                 (lluvias || []).forEach((r: any) => {
                     const mes = r.fecha.substring(0, 7);
@@ -307,24 +244,25 @@ export default function Dashboard() {
                 });
 
                 if (Object.keys(gruposLluvia).length > 0) {
-                    const lt: LluviaItem[] = Object.keys(gruposLluvia)
-                        .sort()
-                        .map(key => {
-                            const [anio, mes] = key.split('-');
-                            return {
-                                fecha: format(new Date(parseInt(anio), parseInt(mes) - 1), 'MMM', { locale: es }),
-                                mm: parseFloat(gruposLluvia[key].toFixed(1))
-                            };
-                        });
+                    const lt: LluviaItem[] = Object.keys(gruposLluvia).sort().map(key => {
+                        const [anio, mes] = key.split('-');
+                        return {
+                            fecha: format(new Date(parseInt(anio), parseInt(mes) - 1), 'MMM', { locale: es }),
+                            mm: parseFloat(gruposLluvia[key].toFixed(1))
+                        };
+                    });
                     setEvolucionLluvia(lt);
                 } else {
                     setEvolucionLluvia([
                         { fecha: 'Ene', mm: 120 }, { fecha: 'Feb', mm: 150 }, { fecha: 'Mar', mm: 80 }, { fecha: 'Abr', mm: 200 }, { fecha: 'May', mm: 250 }
                     ]);
                 }
+            } catch (err) {
+                console.error("Error fetching dashboard data:", err);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
-        }
+        };
         fetchDashboardData();
     }, [fincaId]);
 
@@ -336,6 +274,20 @@ export default function Dashboard() {
         const animalesFiltrados = filterTipo === 'actual' 
             ? animales.filter(a => a.estado === 'activo')
             : animales;
+
+        // Variables para recalcular KPIs según el filtro
+        let totalDiasLevante = 0;
+        let countLevante = 0;
+        let gdpSumaLevante = 0;
+        let countGdpLevante = 0;
+        
+        let totalDiasCeba = 0;
+        let countCeba = 0;
+        let gdpSumaCeba = 0;
+        let countGdpCeba = 0;
+        
+        let gdpSumaTotal = 0;
+        let countGdpTotal = 0;
 
         // Agrupar pesajes por animal
         const pesajesPorAnimal: Record<string, any[]> = {};
@@ -352,9 +304,49 @@ export default function Dashboard() {
         const gmpCebaDetalles: Record<number, GmpDetailItem[]> = {};
 
         animalesFiltrados.forEach(animal => {
-            const misPesajes = pesajesPorAnimal[animal.id];
-            if (!misPesajes || misPesajes.length === 0) return;
+            const misPesajes = pesajesPorAnimal[animal.id] || [];
+            
+            // Lógica para KPIs de los bloques superiores
+            const etapaActual = animal.etapa?.toLowerCase();
+            if (etapaActual === 'levante') {
+                const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso));
+                totalDiasLevante += diffHoy;
+                countLevante++;
+                if (misPesajes.length > 0) {
+                    const sortedP = [...misPesajes].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+                    const lastP = sortedP[sortedP.length - 1];
+                    const diffDias = differenceInDays(new Date(lastP.fecha), new Date(animal.fecha_ingreso));
+                    if (diffDias > 0) {
+                        const gdp = (lastP.peso - animal.peso_ingreso) / diffDias;
+                        gdpSumaLevante += gdp;
+                        countGdpLevante++;
+                        gdpSumaTotal += gdp;
+                        countGdpTotal++;
+                    }
+                }
+            } else if (etapaActual === 'ceba') {
+                const inicioCeba = animal.fecha_ingreso_ceba || animal.fecha_ingreso;
+                const pesoInicioCeba = animal.peso_ingreso_ceba || animal.peso_ingreso;
+                const diffHoy = differenceInDays(new Date(), new Date(inicioCeba));
+                totalDiasCeba += diffHoy;
+                countCeba++;
+                const pesajesCeba = misPesajes.filter((p: any) => p.etapa?.toLowerCase() === 'ceba');
+                if (pesajesCeba.length > 0) {
+                    const sortedP = [...pesajesCeba].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+                    const lastCeba = sortedP[sortedP.length - 1];
+                    const diffDias = differenceInDays(new Date(lastCeba.fecha), new Date(inicioCeba));
+                    if (diffDias > 0) {
+                        const gdp = (lastCeba.peso - pesoInicioCeba) / diffDias;
+                        gdpSumaCeba += gdp;
+                        countGdpCeba++;
+                        gdpSumaTotal += gdp;
+                        countGdpTotal++;
+                    }
+                }
+            }
 
+            // Lógica para el gráfico de evolución (Medición 1, 2, 3...)
+            if (misPesajes.length === 0) return;
             const ordenados = [...misPesajes].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
             
             // Baseline inicial de la vida del animal
@@ -436,7 +428,24 @@ export default function Dashboard() {
             setEvolucionGmp([]);
             setDetallesGmpAgrupados({ levante: {}, ceba: {} });
         }
-    }, [filterTipo, rawData]);
+
+        // Finalmente actualizamos los KPIs agregados del Top según el filtro
+        const gmpTotalCiclo = countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) * 30 : null;
+        const carneHaAno = (gmpTotalCiclo !== null && fincaInfo?.area_aprovechable && fincaInfo.area_aprovechable > 0)
+            ? (animalesFiltrados.length * gmpTotalCiclo * 12) / fincaInfo.area_aprovechable
+            : null;
+
+        setStats(prev => ({
+            ...prev,
+            totalAnimales: filterTipo === 'actual' ? animalesFiltrados.length : prev.totalAnimales, // El inventario actual es siempre el de activos
+            promedioLevanteMeses: countLevante > 0 ? (totalDiasLevante / countLevante) / 30 : null,
+            gmpLevante: countGdpLevante > 0 ? (gdpSumaLevante / countGdpLevante) * 30 : null,
+            promedioCebaMeses: countCeba > 0 ? (totalDiasCeba / countCeba) / 30 : null,
+            gmpCeba: countGdpCeba > 0 ? (gdpSumaCeba / countGdpCeba) * 30 : null,
+            gmpTotal: gmpTotalCiclo,
+            produccionCarneHaAno: carneHaAno
+        }));
+    }, [filterTipo, rawData, fincaInfo.area_aprovechable]);
     return (
         <div className="page-container" style={{ paddingBottom: '40px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
@@ -525,19 +534,21 @@ export default function Dashboard() {
                                     {stats.totalMuertosAno}
                                 </div>
                             </div>
-                            <div style={{
-                                background: 'rgba(255,255,255,0.03)',
-                                padding: '20px 32px',
-                                borderRadius: '16px',
-                                border: '1px solid rgba(255,255,255,0.05)',
-                                textAlign: 'center',
-                                minWidth: '150px'
-                            }}>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Área de Ganado</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
-                                    {fincaInfo.area_aprovechable} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Ha</span>
+                                <div style={{
+                                    background: 'rgba(255,255,255,0.03)',
+                                    padding: '20px 32px',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255,255,255,0.05)',
+                                    textAlign: 'center',
+                                    minWidth: '150px'
+                                }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                        {filterTipo === 'actual' ? 'Inventario Finca' : 'Histórico Finca'}
+                                    </div>
+                                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>
+                                        {filterTipo === 'actual' ? stats.totalAnimales : (rawData?.animales?.length || 0)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>Cabezas</span>
+                                    </div>
                                 </div>
-                            </div>
                         </div>
                     </div>
 
