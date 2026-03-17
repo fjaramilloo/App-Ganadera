@@ -12,13 +12,13 @@ import { useNavigate } from 'react-router-dom';
 
 interface DashboardStats {
     totalAnimales: number;
-    promedioLevanteMeses: number;
-    gmpLevante: number; 
-    promedioCebaMeses: number;
-    gmpCeba: number;
-    gmpTotal: number;
+    promedioLevanteMeses: number | null;
+    gmpLevante: number | null; 
+    promedioCebaMeses: number | null;
+    gmpCeba: number | null;
+    gmpTotal: number | null;
     totalMuertosAno: number;
-    produccionCarneHaAno: number;
+    produccionCarneHaAno: number | null;
     cargaAnimal: number;
     pesoPromedioEntrada: number;
     pesoPromedioSalida: number;
@@ -57,13 +57,13 @@ export default function Dashboard() {
 
     const [stats, setStats] = useState<DashboardStats>({
         totalAnimales: 0,
-        promedioLevanteMeses: 0,
-        gmpLevante: 0,
-        promedioCebaMeses: 0,
-        gmpCeba: 0,
-        gmpTotal: 0,
+        promedioLevanteMeses: null,
+        gmpLevante: null,
+        promedioCebaMeses: null,
+        gmpCeba: null,
+        gmpTotal: null,
         totalMuertosAno: 0,
-        produccionCarneHaAno: 0,
+        produccionCarneHaAno: null,
         cargaAnimal: 0,
         pesoPromedioEntrada: 360,
         pesoPromedioSalida: 540
@@ -88,7 +88,7 @@ export default function Dashboard() {
     }>({ levante: {}, ceba: {} });
     const [sortCol, setSortCol] = useState<'propietario' | 'gmp'>('gmp');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-    const [filterTipo, setFilterTipo] = useState<'historico' | 'actual'>('actual');
+    const [filterTipo, setFilterTipo] = useState<'historico' | 'actual'>('historico');
     const [rawData, setRawData] = useState<{ animales: any[], pesajes: any[] } | null>(null);
 
     const handleOpenMuertes = async () => {
@@ -128,14 +128,14 @@ export default function Dashboard() {
             // 2. Traer todos los animales activos para calcular los KPIs
             const { data: animales } = await supabase
                 .from('animales')
-                .select('id, etapa, fecha_ingreso, peso_ingreso')
+                .select('id, etapa, fecha_ingreso, peso_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba')
                 .eq('id_finca', fincaId)
                 .eq('estado', 'activo');
 
             // 2b. Traer TODOS los animales para la evolución histórica
             const { data: todosAnimales } = await supabase
                 .from('animales')
-                .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, nombre_propietario')
+                .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, nombre_propietario, estado, fecha_ingreso_ceba, peso_ingreso_ceba')
                 .eq('id_finca', fincaId);
 
             // 3. Traer los últimos pesajes para evolucion
@@ -194,37 +194,44 @@ export default function Dashboard() {
                 let countGdpTotal = 0;
 
                 animales.forEach((animal: any) => {
-                    // KPI: Promedio de Permanencia
-                    if (animal.etapa === 'levante') {
+                    const etapaActual = animal.etapa?.toLowerCase();
+                    const misPesajes = pesajes?.filter((p: any) => p.id_animal === animal.id) || [];
+
+                    // KPI: Ganancia Mensual Promedio (GMP) por etapa
+                    if (etapaActual === 'levante') {
                         const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso));
                         totalDiasLevante += diffHoy;
                         countLevante++;
-                    } else if (animal.etapa === 'ceba') {
-                        const diffHoy = differenceInDays(new Date(), new Date(animal.fecha_ingreso));
+
+                        if (misPesajes.length > 0) {
+                            const ultimoPesaje = misPesajes[misPesajes.length - 1];
+                            const diffDias = differenceInDays(new Date(ultimoPesaje.fecha), new Date(animal.fecha_ingreso));
+                            if (diffDias > 0) {
+                                const gdp = (ultimoPesaje.peso - animal.peso_ingreso) / diffDias;
+                                gdpSumaLevante += gdp;
+                                countGdpLevante++;
+                                gdpSumaTotal += gdp;
+                                countGdpTotal++;
+                            }
+                        }
+                    } else if (etapaActual === 'ceba') {
+                        const inicioCeba = animal.fecha_ingreso_ceba || animal.fecha_ingreso;
+                        const pesoInicioCeba = animal.peso_ingreso_ceba || animal.peso_ingreso;
+                        
+                        const diffHoy = differenceInDays(new Date(), new Date(inicioCeba));
                         totalDiasCeba += diffHoy;
                         countCeba++;
-                    }
 
-                    // KPI: Ganancia Mensual Promedio (GMP)
-                    const misPesajes = pesajes?.filter((p: any) => p.id_animal === animal.id) || [];
-
-                    if (misPesajes.length > 0) {
-                        const ultimoPesaje = misPesajes[misPesajes.length - 1];
-                        const diffDiasTotal = differenceInDays(new Date(ultimoPesaje.fecha), new Date(animal.fecha_ingreso));
-
-                        if (diffDiasTotal > 0) {
-                            const gananciaTotal = ultimoPesaje.peso - animal.peso_ingreso;
-                            const gdpTotal = gananciaTotal / diffDiasTotal;
-
-                            gdpSumaTotal += gdpTotal;
-                            countGdpTotal++;
-
-                            if (animal.etapa === 'levante') {
-                                gdpSumaLevante += gdpTotal;
-                                countGdpLevante++;
-                            } else if (animal.etapa === 'ceba') {
-                                gdpSumaCeba += gdpTotal;
+                        const pesajesCeba = misPesajes.filter((p: any) => p.etapa?.toLowerCase() === 'ceba');
+                        if (pesajesCeba.length > 0) {
+                            const ultimoCeba = pesajesCeba[pesajesCeba.length - 1];
+                            const diffDias = differenceInDays(new Date(ultimoCeba.fecha), new Date(inicioCeba));
+                            if (diffDias > 0) {
+                                const gdp = (ultimoCeba.peso - pesoInicioCeba) / diffDias;
+                                gdpSumaCeba += gdp;
                                 countGdpCeba++;
+                                gdpSumaTotal += gdp;
+                                countGdpTotal++;
                             }
                         }
                     }
@@ -263,17 +270,17 @@ export default function Dashboard() {
                     }
                 }
 
-                const gmpTotalCiclo = countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) * 30 : 0;
-                const carneHaAno = (finca?.area_aprovechable && finca.area_aprovechable > 0)
+                const gmpTotalCiclo = countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) * 30 : null;
+                const carneHaAno = (gmpTotalCiclo !== null && finca?.area_aprovechable && finca.area_aprovechable > 0)
                     ? ((totalAnimales || 0) * gmpTotalCiclo * 12) / finca.area_aprovechable
-                    : 0;
+                    : null;
 
                 setStats({
                     totalAnimales: totalAnimales || 0,
-                    promedioLevanteMeses: countLevante > 0 ? (totalDiasLevante / countLevante) / 30 : 0,
-                    gmpLevante: countGdpLevante > 0 ? (gdpSumaLevante / countGdpLevante) * 30 : 0,
-                    promedioCebaMeses: countCeba > 0 ? (totalDiasCeba / countCeba) / 30 : 0,
-                    gmpCeba: countGdpCeba > 0 ? (gdpSumaCeba / countGdpCeba) * 30 : 0,
+                    promedioLevanteMeses: countLevante > 0 ? (totalDiasLevante / countLevante) / 30 : null,
+                    gmpLevante: countGdpLevante > 0 ? (gdpSumaLevante / countGdpLevante) * 30 : null,
+                    promedioCebaMeses: countCeba > 0 ? (totalDiasCeba / countCeba) / 30 : null,
+                    gmpCeba: countGdpCeba > 0 ? (gdpSumaCeba / countGdpCeba) * 30 : null,
                     gmpTotal: gmpTotalCiclo,
                     totalMuertosAno: muertosAnio || 0,
                     produccionCarneHaAno: carneHaAno,
@@ -348,17 +355,27 @@ export default function Dashboard() {
             const misPesajes = pesajesPorAnimal[animal.id];
             if (!misPesajes || misPesajes.length === 0) return;
 
-            // Ordenar pesajes cronológicamente
             const ordenados = [...misPesajes].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
             
+            // Baseline inicial de la vida del animal
             let prevWeight = parseFloat(animal.peso_ingreso);
             let prevDate = new Date(animal.fecha_ingreso);
+            
             let levanteIndex = 0;
             let cebaIndex = 0;
             
             ordenados.forEach((p: any) => {
-                const currentWeight = parseFloat(p.weight || p.peso); // Soporte para ambos nombres si aplica
+                const etapaP = p.etapa?.toLowerCase();
+                const currentWeight = parseFloat(p.peso);
                 const currentDate = new Date(p.fecha);
+                
+                // Si es la PRIMERA vez que entramos a ceba, y tenemos datos de ingreso a ceba,
+                // reajustamos el baseline a ese punto para que la ganancia de ceba sea pura.
+                if (etapaP === 'ceba' && cebaIndex === 0 && animal.peso_ingreso_ceba) {
+                    prevWeight = parseFloat(animal.peso_ingreso_ceba);
+                    prevDate = new Date(animal.fecha_ingreso_ceba);
+                }
+
                 const diffDias = differenceInDays(currentDate, prevDate);
                 
                 if (diffDias > 0) {
@@ -376,14 +393,14 @@ export default function Dashboard() {
                         gmp: parseFloat(gmpVal.toFixed(1))
                     };
 
-                    if (p.etapa === 'levante') {
+                    if (etapaP === 'levante') {
                         levanteIndex++;
                         if (!gmpLevanteAgrupado[levanteIndex]) gmpLevanteAgrupado[levanteIndex] = { sum: 0, count: 0 };
                         gmpLevanteAgrupado[levanteIndex].sum += gmpVal;
                         gmpLevanteAgrupado[levanteIndex].count++;
                         if (!gmpLevanteDetalles[levanteIndex]) gmpLevanteDetalles[levanteIndex] = [];
                         gmpLevanteDetalles[levanteIndex].push(detail);
-                    } else {
+                    } else if (etapaP === 'ceba') {
                         cebaIndex++;
                         if (!gmpCebaAgrupado[cebaIndex]) gmpCebaAgrupado[cebaIndex] = { sum: 0, count: 0 };
                         gmpCebaAgrupado[cebaIndex].sum += gmpVal;
@@ -393,6 +410,7 @@ export default function Dashboard() {
                     }
                 }
                 
+                // El peso actual se vuelve el previo para la siguiente medición
                 prevWeight = currentWeight;
                 prevDate = currentDate;
             });
@@ -538,11 +556,11 @@ export default function Dashboard() {
                                 <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Levante</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Tiempo Promedio</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.promedioLevanteMeses.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>meses</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.promedioLevanteMeses !== null ? stats.promedioLevanteMeses.toFixed(1) : 'N/A'} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>{stats.promedioLevanteMeses !== null ? 'meses' : ''}</span></span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>GMP Lote</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--success)' }}>{stats.gmpLevante.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: stats.gmpLevante !== null ? 'var(--success)' : 'var(--text-muted)' }}>{stats.gmpLevante !== null ? stats.gmpLevante.toFixed(1) : 'N/A'} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>{stats.gmpLevante !== null ? 'kg' : ''}</span></span>
                                 </div>
                             </div>
                         </div>
@@ -555,11 +573,11 @@ export default function Dashboard() {
                                 <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Ceba</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Tiempo Promedio</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.promedioCebaMeses.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>meses</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.promedioCebaMeses !== null ? stats.promedioCebaMeses.toFixed(1) : 'N/A'} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>{stats.promedioCebaMeses !== null ? 'meses' : ''}</span></span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>GMP Lote</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--success)' }}>{stats.gmpCeba.toFixed(1)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: stats.gmpCeba !== null ? 'var(--success)' : 'var(--text-muted)' }}>{stats.gmpCeba !== null ? stats.gmpCeba.toFixed(1) : 'N/A'} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>{stats.gmpCeba !== null ? 'kg' : ''}</span></span>
                                 </div>
                             </div>
                         </div>
@@ -573,7 +591,7 @@ export default function Dashboard() {
                                 <div style={{ color: 'var(--text-muted)', fontSize: '1rem', fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>Rendimiento Ha</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Kg / Ha / Año</span>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{Math.round(stats.produccionCarneHaAno)} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>kg</span></span>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{stats.produccionCarneHaAno !== null ? Math.round(stats.produccionCarneHaAno) : 'N/A'} <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>{stats.produccionCarneHaAno !== null ? 'kg' : ''}</span></span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Carga Animal Actual</span>

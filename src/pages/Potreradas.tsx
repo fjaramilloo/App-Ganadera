@@ -13,8 +13,8 @@ interface Potrerada {
     animalCount: number;
     pesoPromedio: number;
     pesoEstimadoPromedio: number;
-    gmpPromedio: number;
-    gmpAcumulado: number;
+    gmpPromedio: number | null;
+    gmpAcumulado: number | null;
     diasPesajePromedio: number;
     marcas: string[];
 }
@@ -31,6 +31,7 @@ interface AnimalPotrero {
     pesoIngresoEtapa?: number | null;
     pesajesFiltrados?: { [fecha: string]: number };
     hasCalculatedGmp?: boolean;
+    estado?: string;
 }
 
 interface ChartData {
@@ -57,6 +58,9 @@ export default function Potreradas() {
     
     // Estados para búsqueda y gestión
     const [potreradaSearch, setPotreradaSearch] = useState('');
+    const [filterEtapa, setFilterEtapa] = useState<string>('todas');
+    const [potreradaSortConfig, setPotreradaSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'nombre', direction: 'asc' });
+    
     const [managingPotrerada, setManagingPotrerada] = useState<Potrerada | null>(null);
     const [animalesFinca, setAnimalesFinca] = useState<AnimalPotrero[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -71,7 +75,6 @@ export default function Potreradas() {
         animales: AnimalPotrero[];
         fechasColumnas: string[];
         gmpPromedioGrupo: number;
-        history: ChartData[];
     } | null>(null);
 
     // Estado para ordenamiento en el detalle
@@ -81,6 +84,7 @@ export default function Potreradas() {
     const [weighingData, setWeighingData] = useState<{ [animalId: string]: string }>({});
     const [savingWeighings, setSavingWeighings] = useState(false);
     const [showWeighingForm, setShowWeighingForm] = useState(false);
+    const [includeHistory, setIncludeHistory] = useState(true); // Default to true to show historical performance as requested
 
     const fetchPotreradasData = async () => {
         if (!fincaId) return;
@@ -225,8 +229,8 @@ export default function Potreradas() {
                     animalCount: groupAnimals.length,
                     pesoPromedio: validWeightCount > 0 ? totalPeso / validWeightCount : 0,
                     pesoEstimadoPromedio: validWeightCount > 0 ? totalPesoEstimado / validWeightCount : 0,
-                    gmpPromedio: validGmpLastCount > 0 ? totalGmpLast / validGmpLastCount : 0,
-                    gmpAcumulado: validGmpAccCount > 0 ? totalGmpAcc / validGmpAccCount : 0,
+                    gmpPromedio: validGmpLastCount > 0 ? totalGmpLast / validGmpLastCount : null,
+                    gmpAcumulado: validGmpAccCount > 0 ? totalGmpAcc / validGmpAccCount : null,
                     diasPesajePromedio: validDateCount > 0 ? totalDiasPesaje / validDateCount : 0,
                     marcas: Array.from(new Set(groupAnimals.map((a: any) => a.nombre_propietario).filter(Boolean))).sort() as string[]
                 };
@@ -239,6 +243,45 @@ export default function Potreradas() {
             setLoading(false);
         }
     };
+
+    const handlePotreradaSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (potreradaSortConfig && potreradaSortConfig.key === key && potreradaSortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setPotreradaSortConfig({ key, direction });
+    };
+
+    const processedPotreradas = useMemo(() => {
+        let result = potreradas.filter(p => {
+            const matchesSearch = p.nombre.toLowerCase().includes(potreradaSearch.toLowerCase()) || 
+                                 p.marcas.some(m => m.toLowerCase().includes(potreradaSearch.toLowerCase()));
+            const matchesEtapa = filterEtapa === 'todas' || p.etapa.toLowerCase() === filterEtapa.toLowerCase();
+            return matchesSearch && matchesEtapa;
+        });
+
+        if (potreradaSortConfig) {
+            const { key, direction } = potreradaSortConfig;
+            result.sort((a: any, b: any) => {
+                let valA = a[key];
+                let valB = b[key];
+
+                if (valA === null || valA === undefined) return 1;
+                if (valB === null || valB === undefined) return -1;
+
+                if (key === 'marcas') {
+                    valA = valA.join(', ');
+                    valB = valB.join(', ');
+                }
+
+                if (valA < valB) return direction === 'asc' ? -1 : 1;
+                if (valA > valB) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        return result;
+    }, [potreradas, potreradaSearch, filterEtapa, potreradaSortConfig]);
 
     useEffect(() => {
         fetchPotreradasData();
@@ -361,6 +404,7 @@ export default function Potreradas() {
                     peso_ingreso,
                     fecha_ingreso,
                     etapa,
+                    estado,
                     fecha_ingreso_ceba,
                     peso_ingreso_ceba,
                     id_potrero_actual,
@@ -373,8 +417,9 @@ export default function Potreradas() {
                         gmp_calculada
                     )
                 `)
-                .eq('id_potrerada', p.id)
-                .eq('estado', 'activo');
+                .eq('id_potrerada', p.id);
+                // Quitamos el filtro de estado 'activo' para que la historia y gráficas de la potrerada
+                // mantengan los datos de animales que ya salieron (vendidos/muertos).
 
             if (animErr) throw animErr;
 
@@ -429,7 +474,8 @@ export default function Potreradas() {
                     fechaIngresoEtapa: fechaIngresoEtapa,
                     pesoIngresoEtapa: pesoIngresoEtapa,
                     pesajesFiltrados: pesajesMap,
-                    hasCalculatedGmp: hasGmp || registros.length > 1
+                    hasCalculatedGmp: hasGmp || registros.length > 1,
+                    estado: a.estado
                 };
             });
 
@@ -457,31 +503,12 @@ export default function Potreradas() {
                 });
             });
 
-            const groupedByDate: { [key: string]: { totalPeso: number; totalGdp: number; count: number } } = {};
-            allWeighings.forEach(w => {
-                if (!groupedByDate[w.fecha]) {
-                    groupedByDate[w.fecha] = { totalPeso: 0, totalGdp: 0, count: 0 };
-                }
-                groupedByDate[w.fecha].totalPeso += w.peso;
-                groupedByDate[w.fecha].totalGdp += w.gdp;
-                groupedByDate[w.fecha].count += 1;
-            });
-
-            const history: ChartData[] = Object.keys(groupedByDate)
-                .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-                .map(date => ({
-                    fecha: format(new Date(date), 'dd MMM', { locale: es }),
-                    pesoPromedio: Math.round(groupedByDate[date].totalPeso / groupedByDate[date].count),
-                    gmpPromedio: Number(( (groupedByDate[date].totalGdp / groupedByDate[date].count) * 30).toFixed(2))
-                }));
-
             setDetailData({
                 potrerada: p,
                 potreroActual: potreroName,
                 animales: processedAnimals,
                 fechasColumnas: fechasColumnas,
-                gmpPromedioGrupo: avgGmp,
-                history
+                gmpPromedioGrupo: avgGmp
             });
 
         } catch (error: any) {
@@ -499,10 +526,59 @@ export default function Potreradas() {
         setSortConfig({ key, direction });
     };
 
+    const currentHistory = useMemo(() => {
+        if (!detailData?.animales) return [];
+        
+        let animalsInRange = detailData.animales;
+        if (!includeHistory) {
+            animalsInRange = animalsInRange.filter(a => a.estado === 'activo');
+        }
+
+        const allWeighings: { fecha: string; peso: number; gdp: number }[] = [];
+        animalsInRange.forEach(a => {
+            if (a.pesajesFiltrados) {
+                Object.entries(a.pesajesFiltrados).forEach(([fecha, peso]) => {
+                    // Nota: para el gráfico necesitamos el GDP histórico, no solo el actual.
+                    // Para simplificar y mantener fidelidad, usaremos los pesajes que ya filtró handleOpenDetail
+                    allWeighings.push({ fecha, peso: Number(peso), gdp: (a.gdp || 0) }); 
+                });
+            }
+        });
+
+        const groupedByDate: { [key: string]: { totalPeso: number; count: number } } = {};
+        allWeighings.forEach(w => {
+            if (!groupedByDate[w.fecha]) {
+                groupedByDate[w.fecha] = { totalPeso: 0, count: 0 };
+            }
+            groupedByDate[w.fecha].totalPeso += w.peso;
+            groupedByDate[w.fecha].count += 1;
+        });
+
+        return Object.keys(groupedByDate)
+            .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+            .map(date => {
+                const count = groupedByDate[date].count;
+                const pesoPromedio = Math.round(groupedByDate[date].totalPeso / count);
+                
+                // Calculamos el GMP promedio para esa fecha basado en los animales presentes
+                // (Para una precisión total, necesitaríamos los registros individuales en cada fecha)
+                return {
+                    fecha: format(new Date(date + 'T12:00:00'), 'dd MMM', { locale: es }),
+                    pesoPromedio,
+                    gmpPromedio: 0 // Lo calcularemos dinámicamente o mostraremos solo peso si no hay historia detallada
+                };
+            });
+    }, [detailData?.animales, includeHistory]);
+
     const sortedAnimals = useMemo(() => {
         if (!detailData?.animales) return [];
         
-        return [...detailData.animales].sort((a: any, b: any) => {
+        let filtered = detailData.animales;
+        if (!includeHistory) {
+            filtered = filtered.filter(a => a.estado === 'activo');
+        }
+        
+        return [...filtered].sort((a: any, b: any) => {
             if (!sortConfig) return 0;
             const { key, direction } = sortConfig;
             
@@ -592,15 +668,30 @@ export default function Potreradas() {
                 )}
             </div>
 
-            <div style={{ marginBottom: '24px', position: 'relative', maxWidth: '400px' }}>
-                <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input 
-                    type="text" 
-                    placeholder="Buscar por nombre o marca..." 
-                    value={potreradaSearch}
-                    onChange={(e) => setPotreradaSearch(e.target.value)}
-                    style={{ paddingLeft: '48px', marginBottom: 0 }}
-                />
+            <div style={{ marginBottom: '24px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+                    <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input 
+                        type="text" 
+                        placeholder="Buscar por lote o marca..." 
+                        value={potreradaSearch}
+                        onChange={(e) => setPotreradaSearch(e.target.value)}
+                        style={{ paddingLeft: '48px', marginBottom: 0 }}
+                    />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Etapa:</span>
+                    <select 
+                        value={filterEtapa}
+                        onChange={(e) => setFilterEtapa(e.target.value)}
+                        style={{ width: 'auto', padding: '8px 16px', marginBottom: 0 }}
+                    >
+                        <option value="todas">Todas</option>
+                        <option value="cria">Cría</option>
+                        <option value="levante">Levante</option>
+                        <option value="ceba">Ceba</option>
+                    </select>
+                </div>
             </div>
 
             {loading ? (
@@ -610,23 +701,18 @@ export default function Potreradas() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
                         <thead>
                             <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nombre Potrerada</th>
-                                <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Marcas</th>
-                                <th style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Animales</th>
-                                <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</th>
-                                <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ganancias (GMP)</th>
-                                <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Días Pesaje</th>
+                                <th onClick={() => handlePotreradaSort('nombre')} style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', cursor: 'pointer' }}>Nombre {potreradaSortConfig?.key === 'nombre' && (potreradaSortConfig.direction === 'asc' ? '↑' : '↓')}</th>
+                                <th onClick={() => handlePotreradaSort('marcas')} style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', cursor: 'pointer' }}>Marcas {potreradaSortConfig?.key === 'marcas' && (potreradaSortConfig.direction === 'asc' ? '↑' : '↓')}</th>
+                                <th onClick={() => handlePotreradaSort('animalCount')} style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', cursor: 'pointer' }}>Animales {potreradaSortConfig?.key === 'animalCount' && (potreradaSortConfig.direction === 'asc' ? '↑' : '↓')}</th>
+                                <th onClick={() => handlePotreradaSort('pesoEstimadoPromedio')} className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', cursor: 'pointer' }}>Peso Promedio {potreradaSortConfig?.key === 'pesoEstimadoPromedio' && (potreradaSortConfig.direction === 'asc' ? '↑' : '↓')}</th>
+                                <th onClick={() => handlePotreradaSort('gmpPromedio')} style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', cursor: 'pointer' }}>Ganancias {potreradaSortConfig?.key === 'gmpPromedio' && (potreradaSortConfig.direction === 'asc' ? '↑' : '↓')}</th>
+                                <th onClick={() => handlePotreradaSort('diasPesajePromedio')} className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', cursor: 'pointer' }}>Días Pesaje {potreradaSortConfig?.key === 'diasPesajePromedio' && (potreradaSortConfig.direction === 'asc' ? '↑' : '↓')}</th>
                                 {role === 'administrador' && <th style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acciones</th>}
                             </tr>
                         </thead>
                         <tbody>
-                            {potreradas
-                                .filter(p => 
-                                    p.nombre.toLowerCase().includes(potreradaSearch.toLowerCase()) || 
-                                    p.marcas.some(m => m.toLowerCase().includes(potreradaSearch.toLowerCase()))
-                                )
-                                .map((p, idx) => (
-                                <tr key={p.id} className="table-row-hover" style={{ borderBottom: idx < potreradas.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                            {processedPotreradas.map((p, idx) => (
+                                <tr key={p.id} className="table-row-hover" style={{ borderBottom: idx < processedPotreradas.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                                     <td style={{ padding: '16px 24px' }}>
                                         <div onClick={() => handleOpenDetail(p)} style={{ cursor: 'pointer' }}>
                                             <div style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '1.1rem' }}>{p.nombre}</div>
@@ -668,19 +754,21 @@ export default function Potreradas() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Últ:</span>
                                                 <span style={{ 
-                                                    color: p.gmpPromedio > umbralAlto ? 'var(--success)' : p.gmpPromedio > umbralMedio ? 'var(--warning)' : 'var(--error)',
-                                                    fontWeight: 'bold'
+                                                    color: p.gmpPromedio === null ? 'var(--text-muted)' : (p.gmpPromedio > umbralAlto ? 'var(--success)' : p.gmpPromedio > umbralMedio ? 'var(--warning)' : 'var(--error)'),
+                                                    fontWeight: 'bold',
+                                                    fontSize: p.gmpPromedio === null ? '0.75rem' : 'inherit'
                                                 }}>
-                                                    {p.gmpPromedio.toFixed(1)}
+                                                    {p.gmpPromedio !== null ? p.gmpPromedio.toFixed(1) : 'N/A'}
                                                 </span>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Acum:</span>
                                                 <span style={{ 
-                                                    color: p.gmpAcumulado > umbralAlto ? 'var(--success)' : p.gmpAcumulado > umbralMedio ? 'var(--warning)' : 'var(--error)',
-                                                    fontWeight: '500'
+                                                    color: p.gmpAcumulado === null ? 'var(--text-muted)' : (p.gmpAcumulado > umbralAlto ? 'var(--success)' : p.gmpAcumulado > umbralMedio ? 'var(--warning)' : 'var(--error)'),
+                                                    fontWeight: '500',
+                                                    fontSize: p.gmpAcumulado === null ? '0.75rem' : 'inherit'
                                                 }}>
-                                                    {p.gmpAcumulado.toFixed(1)}
+                                                    {p.gmpAcumulado !== null ? p.gmpAcumulado.toFixed(1) : 'N/A'}
                                                 </span>
                                             </div>
                                         </div>
@@ -924,6 +1012,29 @@ export default function Potreradas() {
                                         </div>
                                     </div>
                                 </div>
+                                
+                                {/* Filtro de Historial */}
+                                <div style={{ padding: '0 24px', marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+                                    <button 
+                                        onClick={() => setIncludeHistory(!includeHistory)}
+                                        style={{ 
+                                            background: includeHistory ? 'rgba(52, 152, 219, 0.15)' : 'rgba(255,255,255,0.05)',
+                                            color: includeHistory ? '#3498db' : 'var(--text-muted)',
+                                            border: includeHistory ? '1px solid rgba(52, 152, 219, 0.4)' : '1px solid rgba(255,255,255,0.1)',
+                                            padding: '6px 16px',
+                                            borderRadius: '20px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '600',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <TrendingUp size={14} />
+                                        {includeHistory ? 'VIENDO: HISTORIAL COMPLETO' : 'VIENDO: SOLO ACTIVOS'}
+                                    </button>
+                                </div>
 
                                 {/* Main Content Scrollable */}
                                 <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
@@ -932,9 +1043,9 @@ export default function Potreradas() {
                                     <div className="responsive-grid" style={{ marginBottom: '24px' }}>
                                         <div className="glass-panel" style={{ padding: '16px', height: '280px' }}>
                                             <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</h4>
-                                            {detailData.history.length > 1 ? (
+                                            {currentHistory.length > 1 ? (
                                                 <ResponsiveContainer width="100%" height="85%">
-                                                    <LineChart data={detailData.history}>
+                                                    <LineChart data={currentHistory}>
                                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                                                         <XAxis dataKey="fecha" stroke="var(--text-muted)" fontSize={12} />
                                                         <YAxis stroke="var(--text-muted)" fontSize={12} />
@@ -948,15 +1059,15 @@ export default function Potreradas() {
                                         </div>
 
                                         <div className="glass-panel" style={{ padding: '16px', height: '280px' }}>
-                                            <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GMP Promedio</h4>
-                                            {detailData.history.length > 1 ? (
+                                            <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Historial Pesajes</h4>
+                                            {currentHistory.length > 1 ? (
                                                 <ResponsiveContainer width="100%" height="85%">
-                                                    <LineChart data={detailData.history.filter((_, idx) => idx > 0)}>
+                                                    <LineChart data={currentHistory.filter((_, idx) => idx > 0)}>
                                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                                                         <XAxis dataKey="fecha" stroke="var(--text-muted)" fontSize={12} />
                                                         <YAxis stroke="var(--text-muted)" fontSize={12} />
                                                         <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
-                                                        <Line type="monotone" dataKey="gmpPromedio" name="GMP (kg/m)" stroke="var(--success)" strokeWidth={3} dot={{ fill: 'var(--success)', r: 4 }} activeDot={{ r: 6 }} />
+                                                        <Line type="monotone" dataKey="pesoPromedio" name="Peso (kg)" stroke="var(--success)" strokeWidth={3} dot={{ fill: 'var(--success)', r: 4 }} activeDot={{ r: 6 }} />
                                                     </LineChart>
                                                 </ResponsiveContainer>
                                             ) : (
