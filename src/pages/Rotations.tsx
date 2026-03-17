@@ -177,8 +177,20 @@ export default function Rotations() {
                     </div>
                 </div>
                 {isAdmin && (
-                    <button onClick={() => setShowNuevaRotacion(true)} style={{ width: 'auto' }}>
-                        <Plus size={18} /> Nueva Rotación
+                    <button 
+                        onClick={() => setShowNuevaRotacion(true)} 
+                        style={{ 
+                            width: 'auto', 
+                            padding: '10px 24px', 
+                            borderRadius: '100px', 
+                            fontSize: '0.9rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            boxShadow: '0 4px 15px rgba(46, 125, 50, 0.3)'
+                        }}
+                    >
+                        <Plus size={20} /> Nueva Rotación
                     </button>
                 )}
             </div>
@@ -238,8 +250,25 @@ export default function Rotations() {
                             </div>
                             {isAdmin && (
                                 <div style={{ display: 'flex', gap: '12px' }}>
-                                    <button onClick={() => setShowNuevoPotrero(rot.id)} className="btn-secondary" style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem' }}>
-                                        <Plus size={14} />+ Potrero
+                                    <button 
+                                        onClick={() => setShowNuevoPotrero(rot.id)} 
+                                        style={{ 
+                                            width: 'auto', 
+                                            padding: '6px 16px', 
+                                            fontSize: '0.8rem', 
+                                            borderRadius: '100px',
+                                            backgroundColor: 'var(--primary)',
+                                            color: 'white',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            textTransform: 'none',
+                                            fontWeight: 600,
+                                            border: 'none',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                                        }}
+                                    >
+                                        <Plus size={14} /> Potrero
                                     </button>
                                     <button onClick={() => deleteRotacion(rot.id)} style={{ width: 'auto', padding: '6px', background: 'none', color: 'rgba(244, 67, 54, 0.4)' }} title="Eliminar Rotación">
                                         <Trash2 size={16} />
@@ -254,8 +283,8 @@ export default function Rotations() {
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                                         <th style={{ padding: '12px 24px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}>Potrero</th>
-                                        <th style={{ padding: '12px 24px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}>Área (Ha)</th>
-                                        {isAdmin && <th style={{ padding: '12px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}></th>}
+                                        <th style={{ padding: '12px 24px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', width: '120px' }}>Área (Ha)</th>
+                                        {isAdmin && <th style={{ padding: '12px 24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', width: '100px' }}></th>}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -281,11 +310,11 @@ export default function Rotations() {
                                                         <span style={{ fontWeight: 500, color: 'white' }}>{p.nombre}</span>
                                                     )}
                                                 </td>
-                                                <td style={{ padding: '12px 24px', textAlign: 'right' }}>
+                                                <td style={{ padding: '12px 24px', textAlign: 'right', width: '120px' }}>
                                                     {editingPot === p.id ? (
-                                                        <input style={{ margin: 0, padding: '4px 8px', textAlign: 'right', width: '80px' }} type="number" step="0.01" value={editPotForm.area} onChange={e => setEditPotForm({...editPotForm, area: e.target.value})} />
+                                                        <input style={{ margin: 0, padding: '4px 8px', textAlign: 'right', width: '100%' }} type="number" step="0.01" value={editPotForm.area} onChange={e => setEditPotForm({...editPotForm, area: e.target.value})} />
                                                     ) : (
-                                                        <span style={{ color: 'var(--primary-light)' }}>{p.area_hectareas?.toFixed(2)}</span>
+                                                        <span style={{ color: 'var(--primary-light)', fontFamily: 'monospace', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{p.area_hectareas?.toFixed(2)}</span>
                                                     )}
                                                 </td>
                                                 {isAdmin && (
@@ -326,8 +355,24 @@ export default function Rotations() {
                                 </span>
                             </div>
                             {isAdmin && (
-                                <button onClick={() => setShowNuevoPotrero('none')} className="btn-secondary" style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem' }}>
-                                    <Plus size={14} />+ Potrero
+                                <button 
+                                    onClick={() => setShowNuevoPotrero('none')} 
+                                    style={{ 
+                                        width: 'auto', 
+                                        padding: '6px 16px', 
+                                        fontSize: '0.8rem', 
+                                        borderRadius: '100px',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        color: 'white',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        textTransform: 'none',
+                                        fontWeight: 600
+                                    }}
+                                >
+                                    <Plus size={14} /> Potrero
                                 </button>
                             )}
                         </div>
@@ -353,11 +398,11 @@ export default function Rotations() {
                                                     <span style={{ color: 'var(--text-muted)' }}>{p.nombre}</span>
                                                 )}
                                             </td>
-                                            <td style={{ padding: '12px 24px', textAlign: 'right' }}>
+                                            <td style={{ padding: '12px 24px', textAlign: 'right', width: '120px' }}>
                                                 {editingPot === p.id ? (
-                                                    <input style={{ margin: 0, padding: '4px 8px', textAlign: 'right', width: '80px' }} type="number" step="0.01" value={editPotForm.area} onChange={e => setEditPotForm({...editPotForm, area: e.target.value})} />
+                                                    <input style={{ margin: 0, padding: '4px 8px', textAlign: 'right', width: '100%' }} type="number" step="0.01" value={editPotForm.area} onChange={e => setEditPotForm({...editPotForm, area: e.target.value})} />
                                                 ) : (
-                                                    <span style={{ color: 'var(--text-muted)' }}>{p.area_hectareas?.toFixed(2)}</span>
+                                                    <span style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{p.area_hectareas?.toFixed(2)}</span>
                                                 )}
                                             </td>
                                             {isAdmin && (

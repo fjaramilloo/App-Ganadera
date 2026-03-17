@@ -421,10 +421,19 @@ export default function Settings() {
                 try {
                     const headers = results.meta.fields || [];
                     const required = ['numero_chapeta', 'propietario', 'peso_ingreso', 'fecha_ingreso'];
+                    const isWeighingFile = headers.includes('peso') && !headers.includes('peso_ingreso');
+                    const isRotationFile = headers.includes('nombre_rotacion') || headers.includes('nombre_potrero');
+
+                    if (isWeighingFile) {
+                        throw new Error('¡Atención! Parece que está intentando subir un archivo de SEGUIMIENTO DE PESAJES en la sección de INVENTARIO. Por favor, use la sección correcta.');
+                    }
+                    if (isRotationFile) {
+                        throw new Error('¡Atención! Parece que está intentando subir un archivo de ROTACIONES en la sección de INVENTARIO.');
+                    }
+
                     const missing = required.filter(h => !headers.includes(h));
-                    
                     if (missing.length > 0) {
-                        throw new Error(`El archivo no parece ser una plantilla de Inventario. Faltan columnas: ${missing.join(', ')}`);
+                        throw new Error(`El archivo no corresponde a la plantilla de Inventario. Faltan columnas: ${missing.join(', ')}`);
                     }
                     // 1. Obtener mapeos de potreradas y potreros existentes
                     const { data: pds } = await supabase.from('potreradas').select('id, nombre').eq('id_finca', fincaId);
@@ -546,17 +555,40 @@ export default function Settings() {
                         }
                     }
 
-                    // 6. Actualizar animales existentes (sin tocar registros de pesaje ya existentes)
+                    // 6. Actualizar animales existentes (incluyendo nuevo registro de pesaje y reasignación de potrero)
                     let actualizados = 0;
+                    const pesajesEfectuados: any[] = [];
+
                     for (const row of rowsActualizar) {
                         const animalId = existentesMap.get(row.numero_chapeta);
                         if (!animalId) continue;
+
                         const { numero_chapeta: _nc, id_finca: _if, ...camposActualizar } = row;
+                        
+                        // Actualizamos los datos del animal (incluyendo potrerada/potrero actual)
                         const { error: errUpd } = await supabase
                             .from('animales')
                             .update(camposActualizar)
                             .eq('id', animalId);
-                        if (!errUpd) actualizados++;
+
+                        if (!errUpd) {
+                            actualizados++;
+                            // Agregamos el pesaje al historial
+                            pesajesEfectuados.push({
+                                id_animal: animalId,
+                                peso: row.peso_ingreso,
+                                fecha: row.fecha_ingreso,
+                                etapa: row.etapa,
+                                id_potrero: row.id_potrero_actual
+                            });
+                        }
+                    }
+
+                    if (pesajesEfectuados.length > 0) {
+                        const { error: errPesExist } = await supabase
+                            .from('registros_pesaje')
+                            .insert(pesajesEfectuados);
+                        if (errPesExist) console.error("Error al registrar pesajes de animales existentes:", errPesExist);
                     }
 
                     const msgPotreradas = potreradasNuevas.size > 0
@@ -593,10 +625,19 @@ export default function Settings() {
                 try {
                     const headers = results.meta.fields || [];
                     const required = ['numero_chapeta', 'peso', 'fecha'];
-                    const missing = required.filter(h => !headers.includes(h));
+                    const isInventoryFile = headers.includes('peso_ingreso') || headers.includes('propietario');
+                    const isRotationFile = headers.includes('nombre_rotacion') || headers.includes('nombre_potrero');
 
+                    if (isInventoryFile) {
+                        throw new Error('¡Atención! Parece que está intentando subir un archivo de INVENTARIO en la sección de PESAJES. Por favor, use la sección correcta.');
+                    }
+                    if (isRotationFile) {
+                        throw new Error('¡Atención! Parece que está intentando subir un archivo de ROTACIONES en la sección de PESAJES.');
+                    }
+
+                    const missing = required.filter(h => !headers.includes(h));
                     if (missing.length > 0) {
-                        throw new Error(`El archivo no parece ser una plantilla de Seguimiento de Pesajes. Faltan columnas: ${missing.join(', ')}`);
+                        throw new Error(`El archivo no corresponde a la plantilla de Seguimiento de Pesajes. Faltan columnas: ${missing.join(', ')}`);
                     }
 
                     // 1. Obtener mapeos necesarios
@@ -758,10 +799,19 @@ export default function Settings() {
                 try {
                     const headers = results.meta.fields || [];
                     const required = ['nombre_rotacion', 'nombre_potrero', 'area_hectareas'];
-                    const missing = required.filter(h => !headers.includes(h));
+                    const isInventoryFile = headers.includes('peso_ingreso') || headers.includes('numero_chapeta');
+                    const isWeighingFile = headers.includes('peso') && !headers.includes('area_hectareas');
 
+                    if (isInventoryFile) {
+                        throw new Error('¡Atención! Parece que está intentando subir un archivo de INVENTARIO en la sección de ROTACIONES.');
+                    }
+                    if (isWeighingFile) {
+                        throw new Error('¡Atención! Parece que está intentando subir un archivo de PESAJES en la sección de ROTACIONES.');
+                    }
+
+                    const missing = required.filter(h => !headers.includes(h));
                     if (missing.length > 0) {
-                        throw new Error(`El archivo no parece ser una plantilla de Rotaciones y Potreros. Faltan columnas: ${missing.join(', ')}`);
+                        throw new Error(`El archivo no corresponde a la plantilla de Rotaciones y Potreros. Faltan columnas: ${missing.join(', ')}`);
                     }
 
                     // 1. Obtener datos existentes
