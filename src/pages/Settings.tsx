@@ -720,6 +720,92 @@ export default function Settings() {
         });
     };
 
+    const handleBulkRotacionesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !fincaId) return;
+
+        setLoading(true);
+        setMsjExito('');
+        setMsjError('');
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: async (results) => {
+                try {
+                    // 1. Obtener datos existentes
+                    const { data: exRot } = await supabase.from('rotaciones').select('id, nombre').eq('id_finca', fincaId);
+                    const { data: exPot } = await supabase.from('potreros').select('id, nombre, id_rotacion').eq('id_finca', fincaId);
+
+                    const mapRotaciones = new Map(exRot?.map(r => [r.nombre.toLowerCase().trim(), r.id]));
+                    const mapPotreros = new Map(exPot?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
+
+                    // 2. Identificar rotaciones nuevas
+                    const rotacionesNuevas = new Map<string, string>(); // nombre_lower -> original
+                    results.data.forEach((row: any) => {
+                        const rotName = row.nombre_rotacion?.toString().trim();
+                        if (rotName && !mapRotaciones.has(rotName.toLowerCase())) {
+                            rotacionesNuevas.set(rotName.toLowerCase(), rotName);
+                        }
+                    });
+
+                    if (rotacionesNuevas.size > 0) {
+                        const inserts = Array.from(rotacionesNuevas.values()).map(nombre => ({
+                            id_finca: fincaId,
+                            nombre: nombre
+                        }));
+                        const { data: creadas, error: rotErr } = await supabase.from('rotaciones').insert(inserts).select();
+                        if (rotErr) throw rotErr;
+                        creadas?.forEach(r => mapRotaciones.set(r.nombre.toLowerCase().trim(), r.id));
+                    }
+
+                    // 3. Procesar potreros
+                    const recordsPotreros: any[] = [];
+                    let updatesPotrerosCnt = 0;
+
+                    for (const row of results.data as any[]) {
+                        const potName = row.nombre_potrero?.toString().trim();
+                        const rotName = row.nombre_rotacion?.toString().trim();
+                        const area = parseFloat(row.area_hectareas) || 0;
+                        const rotId = rotName ? mapRotaciones.get(rotName.toLowerCase()) : null;
+
+                        if (!potName) continue;
+
+                        const existingPotId = mapPotreros.get(potName.toLowerCase());
+                        if (existingPotId) {
+                            const { error: potUpdErr } = await supabase
+                                .from('potreros')
+                                .update({ id_rotacion: rotId, area_hectareas: area })
+                                .eq('id', existingPotId);
+                            if (potUpdErr) throw potUpdErr;
+                            updatesPotrerosCnt++;
+                        } else {
+                            recordsPotreros.push({
+                                id_finca: fincaId,
+                                nombre: potName,
+                                area_hectareas: area,
+                                id_rotacion: rotId
+                            });
+                        }
+                    }
+
+                    if (recordsPotreros.length > 0) {
+                        const { error: potInsErr } = await supabase.from('potreros').insert(recordsPotreros);
+                        if (potInsErr) throw potInsErr;
+                    }
+
+                    setMsjExito(`¡Carga exitosa! Se crearon ${recordsPotreros.length} potreros nuevos y se actualizaron ${updatesPotrerosCnt} existentes.`);
+                    setShowExitoModal(true);
+                } catch (err: any) {
+                    setMsjError(err.message || 'Error procesando el archivo CSV.');
+                } finally {
+                    setLoading(false);
+                    if (e.target) e.target.value = '';
+                }
+            }
+        });
+    };
+
     return (
         <div className="page-container" style={{ maxWidth: '800px' }}>
             <h1 className="title" style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'left', marginBottom: '32px' }}>
@@ -1103,6 +1189,14 @@ export default function Settings() {
                                             </div>
                                             <input type="file" id="bulkPesajeSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkPesajeUpload} />
                                             <button onClick={() => document.getElementById('bulkPesajeSettings')?.click()} style={{ width: '100%' }} disabled={loading}>Subir Pesajes</button>
+                                        </div>
+                                        <div style={{ padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ fontWeight: 'bold' }}>Rotaciones</span>
+                                                <a href="/plantilla_rotaciones_potreros.csv" download style={{ color: 'var(--primary-light)' }}><FileText size={16} /></a>
+                                            </div>
+                                            <input type="file" id="bulkRotacionSettings" accept=".csv" style={{ display: 'none' }} onChange={handleBulkRotacionesUpload} />
+                                            <button onClick={() => document.getElementById('bulkRotacionSettings')?.click()} style={{ width: '100%' }} disabled={loading}>Subir Rotaciones</button>
                                         </div>
                                     </div>
                                 </div>

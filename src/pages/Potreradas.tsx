@@ -428,7 +428,10 @@ export default function Potreradas() {
             // 4. Preparar datos para las gráficas (agrupar pesajes por fecha)
             const allWeighings: { fecha: string; peso: number; gdp: number }[] = [];
             animals?.forEach(a => {
-                a.registros_pesaje?.forEach((r: any) => {
+                const registrosEtapa = (a.registros_pesaje || []).filter((r: any) => 
+                    r.etapa?.toLowerCase() === p.etapa.toLowerCase()
+                );
+                registrosEtapa.forEach((r: any) => {
                     allWeighings.push({ fecha: r.fecha, peso: Number(r.peso), gdp: Number(r.gdp_calculada || 0) });
                 });
             });
@@ -858,7 +861,7 @@ export default function Potreradas() {
                                     <div className="responsive-grid" style={{ marginBottom: '24px' }}>
                                         <div className="glass-panel" style={{ padding: '16px', height: '280px' }}>
                                             <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</h4>
-                                            {detailData.history.length > 0 ? (
+                                            {detailData.history.length > 1 ? (
                                                 <ResponsiveContainer width="100%" height="85%">
                                                     <LineChart data={detailData.history}>
                                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -869,13 +872,13 @@ export default function Potreradas() {
                                                     </LineChart>
                                                 </ResponsiveContainer>
                                             ) : (
-                                                <div style={{ height: '85%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Sin datos históricos suficientes</div>
+                                                <div style={{ height: '85%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '0 20px' }}>Información insuficiente para generar la gráfica</div>
                                             )}
                                         </div>
 
                                         <div className="glass-panel" style={{ padding: '16px', height: '280px' }}>
                                             <h4 style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GMP Promedio</h4>
-                                            {detailData.history.length > 1 ? (
+                                            {detailData.history.length > 2 ? (
                                                 <ResponsiveContainer width="100%" height="85%">
                                                     <LineChart data={detailData.history.filter((_, idx) => idx > 0)}>
                                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -886,7 +889,7 @@ export default function Potreradas() {
                                                     </LineChart>
                                                 </ResponsiveContainer>
                                             ) : (
-                                                <div style={{ height: '85%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Sin datos históricos suficientes</div>
+                                                <div style={{ height: '85%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '0 20px' }}>Información insuficiente para generar la gráfica</div>
                                             )}
                                         </div>
                                     </div>
