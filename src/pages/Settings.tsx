@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock } from 'lucide-react';
-// @ts-expect-error type definitions for papaparse are throwing a false positive
+// @ts-ignore type definitions for papaparse are throwing a false positive in the IDE
 import Papa from 'papaparse';
 
 const parseFechaCol = (fechaStr: string) => {
