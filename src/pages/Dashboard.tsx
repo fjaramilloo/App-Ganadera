@@ -118,50 +118,43 @@ export default function Dashboard() {
             if (!fincaId) return;
             setLoading(true);
 
-            // 1. Total de Animales
-            const { count: totalAnimales } = await supabase
-                .from('animales')
-                .select('*', { count: 'exact', head: true })
-                .eq('id_finca', fincaId)
-                .eq('estado', 'activo');
-
-            // 2. Traer todos los animales activos para calcular los KPIs
-            const { data: animales } = await supabase
-                .from('animales')
-                .select('id, etapa, fecha_ingreso, peso_ingreso')
-                .eq('id_finca', fincaId)
-                .eq('estado', 'activo');
-
-            // 2b. Traer TODOS los animales para la evolución histórica
+            // 1. Traer todos los animales de la finca y sus pesajes en una sola consulta
             const { data: todosAnimales } = await supabase
                 .from('animales')
-                .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, nombre_propietario')
+                .select(`
+                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, nombre_propietario, estado, fecha_muerte,
+                    registros_pesaje (
+                        id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
+                    )
+                `)
                 .eq('id_finca', fincaId);
 
-            // 3. Traer los últimos pesajes para evolucion
-            const animalIds = todosAnimales?.map(a => a.id) || [];
-            const { data: pesajes } = await supabase
-                .from('registros_pesaje')
-                .select('id_animal, peso, fecha, etapa, gdp_calculada')
-                .in('id_animal', animalIds)
-                .order('fecha', { ascending: true });
+            // Filtrar los grupos principales en memoria
+            const animales = todosAnimales?.filter(a => a.estado === 'activo') || [];
+            const totalAnimales = animales.length;
+            
+            const anioActual = new Date().getFullYear();
+            const fechaInicioAnioDate = new Date(`${anioActual}-01-01T00:00:00`);
+            const muertosAnio = todosAnimales?.filter(a => a.estado === 'muerto' && a.fecha_muerte && new Date(`${a.fecha_muerte}T00:00:00`) >= fechaInicioAnioDate).length || 0;
 
-            // 3b. Traer registros de lluvia
+            const pesajesMap: Record<string, any[]> = {};
+            const pesajesFlat: any[] = [];
+            todosAnimales?.forEach(a => {
+                if (a.registros_pesaje && Array.isArray(a.registros_pesaje)) {
+                    const sorted = a.registros_pesaje.sort((x: any, y: any) => new Date(x.fecha).getTime() - new Date(y.fecha).getTime());
+                    pesajesMap[a.id] = sorted;
+                    pesajesFlat.push(...sorted);
+                } else {
+                    pesajesMap[a.id] = [];
+                }
+            });
+
+            // 2. Traer registros de lluvia
             const { data: lluvias } = await supabase
                 .from('registros_lluvia')
                 .select('fecha, milimetros')
                 .eq('id_finca', fincaId)
                 .order('fecha', { ascending: true });
-
-            // 4. Animales fallecidos este año
-            const anioActual = new Date().getFullYear();
-            const fechaInicioAnio = `${anioActual}-01-01`;
-            const { count: muertosAnio } = await supabase
-                .from('animales')
-                .select('*', { count: 'exact', head: true })
-                .eq('id_finca', fincaId)
-                .eq('estado', 'muerto')
-                .gte('fecha_muerte', fechaInicioAnio);
 
             // 5. Información de la Finca
             const { data: finca } = await supabase
@@ -206,7 +199,7 @@ export default function Dashboard() {
                     }
 
                     // KPI: Ganancia Mensual Promedio (GMP)
-                    const misPesajes = pesajes?.filter((p: any) => p.id_animal === animal.id) || [];
+                    const misPesajes = pesajesMap[animal.id] || [];
 
                     if (misPesajes.length > 0) {
                         const ultimoPesaje = misPesajes[misPesajes.length - 1];
@@ -238,28 +231,20 @@ export default function Dashboard() {
                 }
 
                 // KPI Peso Promedio Salida (Animales vendidos)
-                const { data: vendidos } = await supabase
-                    .from('animales')
-                    .select('id, peso_ingreso')
-                    .eq('id_finca', fincaId)
-                    .eq('estado', 'vendido');
-                
+                const vendidos = todosAnimales?.filter(a => a.estado === 'vendido') || [];
                 let pesoSalidaFinal = 540;
-                if (vendidos && vendidos.length > 0) {
-                    const idsVendidos = vendidos.map(v => v.id);
-                    const { data: pesajesVendidos } = await supabase
-                        .from('registros_pesaje')
-                        .select('id_animal, peso')
-                        .in('id_animal', idsVendidos)
-                        .order('fecha', { ascending: false });
-                    
-                    if (pesajesVendidos && pesajesVendidos.length > 0) {
-                        const ultimosPesajesVenta: Record<string, number> = {};
-                        pesajesVendidos.forEach(p => {
-                            if (!ultimosPesajesVenta[p.id_animal]) ultimosPesajesVenta[p.id_animal] = p.peso;
-                        });
-                        const pesosVenta = Object.values(ultimosPesajesVenta);
-                        pesoSalidaFinal = pesosVenta.reduce((a, b) => a + b, 0) / pesosVenta.length;
+                if (vendidos.length > 0) {
+                    let sum = 0;
+                    let count = 0;
+                    vendidos.forEach(v => {
+                        const misPsjs = pesajesMap[v.id];
+                        if (misPsjs && misPsjs.length > 0) {
+                            sum += misPsjs[misPsjs.length - 1].peso;
+                            count++;
+                        }
+                    });
+                    if (count > 0) {
+                        pesoSalidaFinal = sum / count;
                     }
                 }
 
@@ -289,7 +274,7 @@ export default function Dashboard() {
                         ...a,
                         estado: (animales?.find(active => active.id === a.id)) ? 'activo' : 'no-activo'
                     })),
-                    pesajes: pesajes || []
+                    pesajes: pesajesFlat
                 });
 
                 // Agrupar lluvias por mes

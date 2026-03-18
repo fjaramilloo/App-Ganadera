@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Settings as SettingsIcon, Upload, FileText, UserPlus, Users, CheckSquare, Square, Trash2, Plus, CheckCircle2, MapPin, Maximize, Home, Lock } from 'lucide-react';
+// @ts-expect-error type definitions for papaparse are throwing a false positive
 import Papa from 'papaparse';
 
 const parseFechaCol = (fechaStr: string) => {
@@ -417,7 +418,7 @@ export default function Settings() {
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
-            complete: async (results) => {
+            complete: async (results: any) => {
                 try {
                     const headers = results.meta.fields || [];
                     const required = ['numero_chapeta', 'propietario', 'peso_ingreso', 'fecha_ingreso'];
@@ -513,9 +514,9 @@ export default function Settings() {
                     });
 
                     const chapetas = rows.map((r: any) => r.numero_chapeta);
-                    if (chapetas.some(c => !c)) throw new Error("Todas las filas deben tener un número de chapeta.");
+                    if (chapetas.some((c: any) => !c)) throw new Error("Todas las filas deben tener un número de chapeta.");
                     
-                    const duplicados = chapetas.filter((c, index) => chapetas.indexOf(c) !== index);
+                    const duplicados = chapetas.filter((c: any, index: number) => chapetas.indexOf(c) !== index);
                     if (duplicados.length > 0) {
                         throw new Error(`El archivo CSV contiene números de chapeta duplicados: ${[...new Set(duplicados)].join(', ')}`);
                     }
@@ -530,8 +531,8 @@ export default function Settings() {
                     if (checkError) throw checkError;
 
                     const existentesMap = new Map(existentes?.map(e => [e.numero_chapeta, e.id]) ?? []);
-                    const rowsNuevos = rows.filter(r => !existentesMap.has(r.numero_chapeta));
-                    const rowsActualizar = rows.filter(r => existentesMap.has(r.numero_chapeta));
+                    const rowsNuevos = rows.filter((r: any) => !existentesMap.has(r.numero_chapeta));
+                    const rowsActualizar = rows.filter((r: any) => existentesMap.has(r.numero_chapeta));
 
                     // 5. Insertar animales nuevos y su pesaje inicial
                     let insertados = 0;
@@ -555,33 +556,35 @@ export default function Settings() {
                         }
                     }
 
-                    // 6. Actualizar animales existentes (incluyendo nuevo registro de pesaje y reasignación de potrero)
+                    // 6. Actualizar animales existentes usando lotes paralelos (Batches) para evitar problemas de N+1 queries.
                     let actualizados = 0;
                     const pesajesEfectuados: any[] = [];
+                    const BATCH_SIZE = 50;
 
-                    for (const row of rowsActualizar) {
-                        const animalId = existentesMap.get(row.numero_chapeta);
-                        if (!animalId) continue;
+                    for (let i = 0; i < rowsActualizar.length; i += BATCH_SIZE) {
+                        const batch = rowsActualizar.slice(i, i + BATCH_SIZE);
+                        await Promise.all(batch.map(async (row: any) => {
+                            const animalId = existentesMap.get(row.numero_chapeta);
+                            if (!animalId) return;
 
-                        const { numero_chapeta: _nc, id_finca: _if, ...camposActualizar } = row;
-                        
-                        // Actualizamos los datos del animal (incluyendo potrerada/potrero actual)
-                        const { error: errUpd } = await supabase
-                            .from('animales')
-                            .update(camposActualizar)
-                            .eq('id', animalId);
+                            const { numero_chapeta: _nc, id_finca: _if, ...camposActualizar } = row;
+                            
+                            const { error: errUpd } = await supabase
+                                .from('animales')
+                                .update(camposActualizar)
+                                .eq('id', animalId);
 
-                        if (!errUpd) {
-                            actualizados++;
-                            // Agregamos el pesaje al historial
-                            pesajesEfectuados.push({
-                                id_animal: animalId,
-                                peso: row.peso_ingreso,
-                                fecha: row.fecha_ingreso,
-                                etapa: row.etapa,
-                                id_potrero: row.id_potrero_actual
-                            });
-                        }
+                            if (!errUpd) {
+                                actualizados++;
+                                pesajesEfectuados.push({
+                                    id_animal: animalId,
+                                    peso: row.peso_ingreso,
+                                    fecha: row.fecha_ingreso,
+                                    etapa: row.etapa,
+                                    id_potrero: row.id_potrero_actual
+                                });
+                            }
+                        }));
                     }
 
                     if (pesajesEfectuados.length > 0) {
@@ -621,7 +624,7 @@ export default function Settings() {
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
-            complete: async (results) => {
+            complete: async (results: any) => {
                 try {
                     const headers = results.meta.fields || [];
                     const required = ['numero_chapeta', 'peso', 'fecha'];
@@ -795,7 +798,7 @@ export default function Settings() {
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
-            complete: async (results) => {
+            complete: async (results: any) => {
                 try {
                     const headers = results.meta.fields || [];
                     const required = ['nombre_rotacion', 'nombre_potrero', 'area_hectareas'];
