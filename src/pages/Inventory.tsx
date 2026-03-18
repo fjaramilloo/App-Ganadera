@@ -245,7 +245,7 @@ export default function Inventory() {
                 {role !== 'observador' && (
                     <button
                         onClick={() => setShowMuerteModal(true)}
-                        style={{ width: 'auto', backgroundColor: 'var(--error)', border: 'none' }}
+                        style={{ width: 'auto', backgroundColor: 'var(--error)', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
                         <Skull size={18} /> Reportar muerte
                     </button>
@@ -642,6 +642,7 @@ export default function Inventory() {
                 );
             })()}
 
+            {/* Modales */}
         </div>
     );
 }

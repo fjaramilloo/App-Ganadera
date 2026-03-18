@@ -5,10 +5,11 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, CartesianGrid, Legend, BarChart, Bar, ReferenceLine
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Home, MapPin } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import ReporteInventarioExcel from '../components/ReporteInventarioExcel';
 
 interface DashboardStats {
     totalAnimales: number;
@@ -90,6 +91,7 @@ export default function Dashboard() {
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [filterTipo, setFilterTipo] = useState<'historico' | 'actual'>('actual');
     const [rawData, setRawData] = useState<{ animales: any[], pesajes: any[] } | null>(null);
+    const [showReporteExcel, setShowReporteExcel] = useState(false);
 
     const handleOpenMuertes = async () => {
         setMuertesModalVisible(true);
@@ -446,6 +448,21 @@ export default function Dashboard() {
                     <p style={{ color: 'var(--text-muted)' }}>Resumen del ciclo de ceba y levante.</p>
                 </div>
 
+                <button
+                    onClick={() => setShowReporteExcel(true)}
+                    className="btn-secondary"
+                    style={{ 
+                        width: 'auto', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '8px',
+                        padding: '12px 24px',
+                        borderRadius: '12px',
+                        fontSize: '0.95rem'
+                    }}
+                >
+                    <FileSpreadsheet size={20} /> Generar Informe Inventario
+                </button>
             </div>
 
             {loading ? (
@@ -921,6 +938,9 @@ export default function Dashboard() {
                                 </div>
                             </div>
                         </div>
+                    )}
+                    {showReporteExcel && (
+                        <ReporteInventarioExcel onClose={() => setShowReporteExcel(false)} />
                     )}
                 </>
             )}
