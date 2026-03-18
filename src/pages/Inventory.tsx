@@ -519,12 +519,17 @@ export default function Inventory() {
                         const d = differenceInDays(new Date(p.fecha), new Date(ant.fecha)) || 1;
                         const ganancia = p.peso - ant.peso;
                         const gmp = (ganancia / d) * 30;
+                        let gdp = (p.gdp_calculada !== null && p.gdp_calculada !== undefined) ? Number(p.gdp_calculada) : (ganancia / d);
+                        if (gdp === 0 && ganancia !== 0) {
+                            gdp = ganancia / d;
+                        }
+
                         return {
                             id: p.fecha,
                             fecha: p.fecha,
                             peso: p.peso,
                             gmp: gmp,
-                            gdp: p.gdp_calculada ?? (ganancia / d),
+                            gdp: gdp,
                             esIngreso: false
                         };
                     }),

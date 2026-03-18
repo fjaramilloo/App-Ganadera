@@ -363,7 +363,11 @@ export default function Dashboard() {
                 const diffDias = differenceInDays(currentDate, prevDate);
                 
                 if (diffDias > 0) {
-                    const gdp = p.gdp_calculada !== null && p.gdp_calculada !== undefined ? Number(p.gdp_calculada) : (currentWeight - prevWeight) / diffDias;
+                    const ganancia = currentWeight - prevWeight;
+                    let gdp = (p.gdp_calculada !== null && p.gdp_calculada !== undefined) ? Number(p.gdp_calculada) : (ganancia / diffDias);
+                    if (gdp === 0 && ganancia !== 0) {
+                        gdp = ganancia / diffDias;
+                    }
                     const gmpVal = gdp * 30;
                     
                     const sortKey = currentDateStr.substring(0, 7); // YYYY-MM
