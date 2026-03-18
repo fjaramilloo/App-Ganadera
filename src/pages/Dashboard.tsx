@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
-    LineChart, Line, CartesianGrid, Legend, BarChart, Bar
+    LineChart, Line, CartesianGrid, Legend, BarChart, Bar, ReferenceLine
 } from 'recharts';
 import { Timer, TrendingUp, Activity, Scale, Home, MapPin } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
@@ -610,7 +610,7 @@ export default function Dashboard() {
                         <div className="card" style={{ padding: '24px' }}>
                             <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Desempeño de GMP por Medición</h3>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Desempeño Histórico de GMP (Mensual)</h3>
                                     
                                     <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px', marginTop: '12px', width: 'fit-content' }}>
                                         <button 
@@ -639,13 +639,14 @@ export default function Dashboard() {
                                         </button>
                                     </div>
 
-                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '12px' }}>Evolución del promedio de ganancia por cada toma de peso (Levante vs Ceba)</p>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '12px' }}>Evolución cronológica del promedio de ganancia de los animales (Levante vs Ceba)</p>
                                 </div>
                             </div>
                             <div style={{ width: '100%', height: '350px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={evolucionGmp} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                        <ReferenceLine y={0} stroke="rgba(255,255,255,0.4)" strokeDasharray="4 4" />
                                         <XAxis
                                             dataKey="label"
                                             stroke="var(--text-muted)"
