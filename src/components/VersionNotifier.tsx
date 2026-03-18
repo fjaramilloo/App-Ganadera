@@ -7,8 +7,9 @@ export default function VersionNotifier() {
 
   const getAssetsSignature = (html: string) => {
     // Buscamos patrones de archivos con hash que genera Vite: index-HASH.js, index-HASH.css
-    const scriptMatches = html.match(/src="\/assets\/index-[a-z0-9]+\.js"/g) || [];
-    const linkMatches = html.match(/href="\/assets\/index-[a-z0-9]+\.css"/g) || [];
+    // IMPORTANTE: Vite usa letras mayúsculas, minúsculas, números, y guiones `[a-zA-Z0-9_-]`
+    const scriptMatches = html.match(/src="\/assets\/[a-zA-Z0-9_-]+\.js"/g) || [];
+    const linkMatches = html.match(/href="\/assets\/[a-zA-Z0-9_-]+\.css"/g) || [];
     // También incluimos el título por si acaso
     const titleMatch = html.match(/<title>(.*?)<\/title>/) || [];
     
