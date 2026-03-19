@@ -17,6 +17,7 @@ interface Potrerada {
     gmpAcumulado: number;
     diasPesajePromedio: number;
     marcas: string[];
+    id_rotacion: string | null;
 }
 
 interface AnimalPotrero {
@@ -50,6 +51,9 @@ export default function Potreradas() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [nuevaPotreradaNombre, setNuevaPotreradaNombre] = useState('');
     const [nuevaPotreradaEtapa, setNuevaPotreradaEtapa] = useState('levante');
+    const [nuevaPotreradaRotacion, setNuevaPotreradaRotacion] = useState('');
+    const [rotaciones, setRotaciones] = useState<{id: string, nombre: string}[]>([]);
+    const [editRotacion, setEditRotacion] = useState<string | null>(null);
     
     // Umbrales GMP
     const [umbralAlto, setUmbralAlto] = useState(20);
@@ -106,6 +110,14 @@ export default function Potreradas() {
                 .order('nombre', { ascending: true });
 
             if (potsErr) throw potsErr;
+
+            // 1.5 Obtener rotaciones para los selectores
+            const { data: rotsData } = await supabase
+                .from('rotaciones')
+                .select('id, nombre')
+                .eq('id_finca', fincaId)
+                .order('nombre', { ascending: true });
+            setRotaciones(rotsData || []);
 
             const { data: animals, error: animErr } = await supabase
                 .from('animales')
@@ -238,7 +250,8 @@ export default function Potreradas() {
                     gmpPromedio: validGmpLastCount > 0 ? totalGmpLast / validGmpLastCount : 0,
                     gmpAcumulado: validGmpAccCount > 0 ? totalGmpAcc / validGmpAccCount : 0,
                     diasPesajePromedio: validDateCount > 0 ? totalDiasPesaje / validDateCount : 0,
-                    marcas: Array.from(new Set(groupAnimals.map((a: any) => a.nombre_propietario).filter(Boolean))).sort() as string[]
+                    marcas: Array.from(new Set(groupAnimals.map((a: any) => a.nombre_propietario).filter(Boolean))).sort() as string[],
+                    id_rotacion: p.id_rotacion
                 };
             });
 
@@ -262,7 +275,12 @@ export default function Potreradas() {
         try {
             const { error } = await supabase
                 .from('potreradas')
-                .insert({ id_finca: fincaId, nombre: nuevaPotreradaNombre.trim(), etapa: nuevaPotreradaEtapa });
+                .insert({ 
+                    id_finca: fincaId, 
+                    nombre: nuevaPotreradaNombre.trim(), 
+                    etapa: nuevaPotreradaEtapa,
+                    id_rotacion: nuevaPotreradaRotacion || null
+                });
 
             if (error) throw error;
 
@@ -279,6 +297,7 @@ export default function Potreradas() {
     const handleEditClick = (p: Potrerada) => {
         setEditingPotrerada(p);
         setNewName(p.nombre);
+        setEditRotacion(p.id_rotacion);
     };
 
     const handleUpdateName = async () => {
@@ -287,7 +306,10 @@ export default function Potreradas() {
         try {
             const { error } = await supabase
                 .from('potreradas')
-                .update({ nombre: newName.trim() })
+                .update({ 
+                    nombre: newName.trim(),
+                    id_rotacion: editRotacion
+                })
                 .eq('id', editingPotrerada.id);
 
             if (error) throw error;
@@ -1229,7 +1251,7 @@ export default function Potreradas() {
                                 />
                             </div>
                             
-                            <div style={{ marginBottom: '32px' }}>
+                            <div style={{ marginBottom: '20px' }}>
                                 <label>Etapa del Ganado</label>
                                 <select 
                                     value={nuevaPotreradaEtapa} 
@@ -1242,12 +1264,76 @@ export default function Potreradas() {
                                 </select>
                             </div>
 
+                            <div style={{ marginBottom: '32px' }}>
+                                <label>Rotación Asignada (Opcional)</label>
+                                <select 
+                                    value={nuevaPotreradaRotacion} 
+                                    onChange={e => setNuevaPotreradaRotacion(e.target.value)}
+                                >
+                                    <option value="">-- Sin Rotación Asignada --</option>
+                                    {rotaciones.map(r => (
+                                        <option key={r.id} value={r.id}>{r.nombre}</option>
+                                    ))}
+                                </select>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Vincula permanentemente este grupo a un conjunto de potreros.</p>
+                            </div>
+
                             <div style={{ display: 'flex', gap: '12px' }}>
                                 <button type="button" onClick={() => setShowAddModal(false)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: 'none' }}>
                                     Cancelar
                                 </button>
                                 <button type="submit" disabled={loading} style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                     {loading ? 'Creando...' : 'Crear Potrerada'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {editingPotrerada && (
+                <div className="modal-overlay">
+                    <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '32px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <Edit2 size={24} color="var(--primary)" /> Editar Potrerada
+                            </h2>
+                            <button onClick={() => setEditingPotrerada(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                                <X size={24} />
+                            </button>
+                        </div>
+                        
+                        <form onSubmit={e => { e.preventDefault(); handleUpdateName(); }}>
+                            <div style={{ marginBottom: '20px' }}>
+                                <label>Nuevo Nombre</label>
+                                <input 
+                                    type="text" 
+                                    value={newName} 
+                                    onChange={e => setNewName(e.target.value)} 
+                                    autoFocus
+                                    required
+                                />
+                            </div>
+
+                            <div style={{ marginBottom: '24px' }}>
+                                <label>Rotación Asignada</label>
+                                <select 
+                                    value={editRotacion || ''} 
+                                    onChange={e => setEditRotacion(e.target.value || null)}
+                                >
+                                    <option value="">-- Sin Rotación --</option>
+                                    {rotaciones.map(r => (
+                                        <option key={r.id} value={r.id}>{r.nombre}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button type="button" onClick={() => setEditingPotrerada(null)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: 'none' }}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" style={{ flex: 2 }}>
+                                    Guardar Cambios
                                 </button>
                             </div>
                         </form>
