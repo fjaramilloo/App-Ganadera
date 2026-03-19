@@ -543,22 +543,10 @@ export default function Settings() {
                             .select();
                         if (errIns) throw errIns;
                         insertados = nuevosAnimales?.length ?? 0;
-
-                        if (nuevosAnimales && nuevosAnimales.length > 0) {
-                            const pesajes = nuevosAnimales.map(anim => ({
-                                id_animal: anim.id,
-                                peso: anim.peso_ingreso,
-                                fecha: anim.fecha_ingreso,
-                                etapa: anim.etapa,
-                                id_potrero: anim.id_potrero_actual
-                            }));
-                            await supabase.from('registros_pesaje').insert(pesajes);
-                        }
                     }
 
-                    // 6. Actualizar animales existentes usando lotes paralelos (Batches) para evitar problemas de N+1 queries.
+                    // 6. Actualizar animales existentes usando lotes paralelos (Batches)
                     let actualizados = 0;
-                    const pesajesEfectuados: any[] = [];
                     const BATCH_SIZE = 50;
 
                     for (let i = 0; i < rowsActualizar.length; i += BATCH_SIZE) {
@@ -576,22 +564,8 @@ export default function Settings() {
 
                             if (!errUpd) {
                                 actualizados++;
-                                pesajesEfectuados.push({
-                                    id_animal: animalId,
-                                    peso: row.peso_ingreso,
-                                    fecha: row.fecha_ingreso,
-                                    etapa: row.etapa,
-                                    id_potrero: row.id_potrero_actual
-                                });
                             }
                         }));
-                    }
-
-                    if (pesajesEfectuados.length > 0) {
-                        const { error: errPesExist } = await supabase
-                            .from('registros_pesaje')
-                            .insert(pesajesEfectuados);
-                        if (errPesExist) console.error("Error al registrar pesajes de animales existentes:", errPesExist);
                     }
 
                     const msgPotreradas = potreradasNuevas.size > 0
