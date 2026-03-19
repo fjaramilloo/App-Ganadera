@@ -11,7 +11,7 @@ export default function Movements() {
     const [msjExito, setMsjExito] = useState('');
     const [msjError, setMsjError] = useState('');
 
-    const [potreradas, setPotreradas] = useState<{ id: string, nombre: string }[]>([]);
+    const [potreradas, setPotreradas] = useState<{ id: string, nombre: string, id_rotacion: string | null }[]>([]);
     const [rotaciones, setRotaciones] = useState<{ id: string, nombre: string, potreros: { id: string, nombre: string }[] }[]>([]);
     
     // Formulary state
@@ -36,7 +36,7 @@ export default function Movements() {
         // Fetch potreradas
         const { data: potreradasData } = await supabase
             .from('potreradas')
-            .select('id, nombre')
+            .select('id, nombre, id_rotacion')
             .eq('id_finca', fincaId)
             .order('nombre');
         
@@ -67,7 +67,6 @@ export default function Movements() {
         }
 
         const fetchCurrentState = async () => {
-            // Buscamos si la potrerada tiene un potrero_actual en algún animal para tener una referencia, o directamente de movimientos_potreros
             const { data } = await supabase
                 .from('movimientos_potreros')
                 .select(`
@@ -82,6 +81,8 @@ export default function Movements() {
                 .limit(1)
                 .single();
 
+            const pObj = potreradas.find(p => p.id === selectedPotreradaId);
+
             if (data && data.potreros) {
                 const potreroData = data.potreros as any;
                 setCurrentMovementId(data.id);
@@ -90,19 +91,28 @@ export default function Movements() {
                     nombre: potreroData.nombre,
                     id_rotacion: potreroData.id_rotacion
                 });
-                if (potreroData.id_rotacion) {
-                    setSelectedTargetRotacionId(potreroData.id_rotacion);
+                
+                // Si la potrerada tiene rotación asginada, usar esa. Si no, usar la del potrero actual.
+                const targetRotId = pObj?.id_rotacion || potreroData.id_rotacion;
+                if (targetRotId) {
+                    setSelectedTargetRotacionId(targetRotId);
+                    setRotacionMode('misma');
                 }
             } else {
                 setCurrentMovementId(null);
                 setCurrentPotrero(null);
-                setSelectedTargetRotacionId('');
+                if (pObj?.id_rotacion) {
+                    setSelectedTargetRotacionId(pObj.id_rotacion);
+                    setRotacionMode('misma');
+                } else {
+                    setSelectedTargetRotacionId('');
+                    setRotacionMode(null);
+                }
             }
             setSelectedTargetPotreroId('');
             setMsjExito('');
             setMsjError('');
             setStep(1);
-            setRotacionMode(null);
         };
 
         fetchCurrentState();
@@ -227,43 +237,46 @@ export default function Movements() {
                                 </button>
                             </div>
 
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>2. ¿A dónde se moverá la potrerada?</label>
-                                <div style={{ display: 'flex', gap: '10px' }}>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => {
-                                            setRotacionMode('misma');
-                                            setSelectedTargetRotacionId(currentPotrero?.id_rotacion || '');
-                                            setSelectedTargetPotreroId('');
-                                        }}
-                                        style={{ 
-                                            flex: 1, 
-                                            backgroundColor: rotacionMode === 'misma' ? 'var(--primary)' : 'transparent',
-                                            border: rotacionMode === 'misma' ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.2)',
-                                            color: rotacionMode === 'misma' ? 'white' : 'var(--text-muted)'
-                                        }}
-                                    >
-                                        Seguir en misma rotación
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => {
-                                            setRotacionMode('cambiar');
-                                            setSelectedTargetRotacionId('');
-                                            setSelectedTargetPotreroId('');
-                                        }}
-                                        style={{ 
-                                            flex: 1, 
-                                            backgroundColor: rotacionMode === 'cambiar' ? 'var(--primary)' : 'transparent',
-                                            border: rotacionMode === 'cambiar' ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.2)',
-                                            color: rotacionMode === 'cambiar' ? 'white' : 'var(--text-muted)'
-                                        }}
-                                    >
-                                        Cambiar a otra rotación
-                                    </button>
+                            {/* Lógica Simplificada: Si hay rotación asignada o detectada, solo mostrar potreros */}
+                            {(!potreradas.find(p => p.id === selectedPotreradaId)?.id_rotacion && !currentPotrero?.id_rotacion) && (
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>2. ¿A dónde se moverá la potrerada?</label>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => {
+                                                setRotacionMode('misma');
+                                                setSelectedTargetRotacionId(currentPotrero?.id_rotacion || '');
+                                                setSelectedTargetPotreroId('');
+                                            }}
+                                            style={{ 
+                                                flex: 1, 
+                                                backgroundColor: rotacionMode === 'misma' ? 'var(--primary)' : 'transparent',
+                                                border: rotacionMode === 'misma' ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.2)',
+                                                color: rotacionMode === 'misma' ? 'white' : 'var(--text-muted)'
+                                            }}
+                                        >
+                                            Seguir en misma rotación
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => {
+                                                setRotacionMode('cambiar');
+                                                setSelectedTargetRotacionId('');
+                                                setSelectedTargetPotreroId('');
+                                            }}
+                                            style={{ 
+                                                flex: 1, 
+                                                backgroundColor: rotacionMode === 'cambiar' ? 'var(--primary)' : 'transparent',
+                                                border: rotacionMode === 'cambiar' ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.2)',
+                                                color: rotacionMode === 'cambiar' ? 'white' : 'var(--text-muted)'
+                                            }}
+                                        >
+                                            Cambiar a otra rotación
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {rotacionMode === 'cambiar' && (
                                 <div>
@@ -284,19 +297,24 @@ export default function Movements() {
                                 </div>
                             )}
 
-                            {rotacionMode && selectedTargetRotacionId && (
+                            {selectedTargetRotacionId && (
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>{rotacionMode === 'cambiar' ? '4.' : '3.'} Potrero Destino *</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>
+                                        {potreradas.find(p => p.id === selectedPotreradaId)?.id_rotacion ? '2.' : (rotacionMode === 'cambiar' ? '4.' : '3.')} Potrero Destino *
+                                    </label>
                                     <select 
                                         value={selectedTargetPotreroId} 
                                         onChange={(e) => setSelectedTargetPotreroId(e.target.value)}
                                         required
                                         disabled={!targetRotacion || !targetRotacion.potreros || targetRotacion.potreros.length === 0}
                                     >
-                                        <option value="">-- Seleccione Potrero --</option>
-                                        {(targetRotacion ? targetRotacion.potreros : []).map(p => (
-                                            <option key={p.id} value={p.id}>{p.nombre}</option>
-                                        ))}
+                                        <option value="">-- Seleccione Potrero Destino --</option>
+                                        {(targetRotacion ? targetRotacion.potreros : [])
+                                            .filter(p => p.id !== currentPotrero?.id) // Ocultar potrero actual
+                                            .map(p => (
+                                                <option key={p.id} value={p.id}>{p.nombre}</option>
+                                            ))
+                                        }
                                     </select>
                                 </div>
                             )}
