@@ -23,7 +23,6 @@ export default function Movements() {
     const [selectedTargetPotreroId, setSelectedTargetPotreroId] = useState('');
     const [fechaMovimiento, setFechaMovimiento] = useState(new Date().toISOString().split('T')[0]);
 
-    const [step, setStep] = useState(1);
     const [rotacionMode, setRotacionMode] = useState<'misma' | 'cambiar' | null>(null);
 
     useEffect(() => {
@@ -112,11 +111,9 @@ export default function Movements() {
             setSelectedTargetPotreroId('');
             setMsjExito('');
             setMsjError('');
-            setStep(1);
-        };
-
-        fetchCurrentState();
-    }, [selectedPotreradaId, fincaId]);
+            setRotacionMode(null);
+        }; fetchCurrentState();
+    }, [selectedPotreradaId, fincaId, potreradas]);
 
     const handleSaveMovement = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -192,55 +189,34 @@ export default function Movements() {
 
             <div className="card">
                 <form onSubmit={handleSaveMovement} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {step === 1 && (
-                        <>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>1. Seleccionar Potrerada *</label>
-                                <select 
-                                    value={selectedPotreradaId} 
-                                    onChange={(e) => setSelectedPotreradaId(e.target.value)}
-                                    required
-                                >
-                                    <option value="">-- Seleccione --</option>
-                                    {potreradas.map(p => (
-                                        <option key={p.id} value={p.id}>{p.nombre}</option>
-                                    ))}
-                                </select>
-                            </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Seleccionar Potrerada *</label>
+                        <select 
+                            value={selectedPotreradaId} 
+                            onChange={(e) => setSelectedPotreradaId(e.target.value)}
+                            required
+                        >
+                            <option value="">-- Seleccione --</option>
+                            {potreradas.map(p => (
+                                <option key={p.id} value={p.id}>{p.nombre}</option>
+                            ))}
+                        </select>
+                        {!isAdminOrCowboy && <p style={{ fontSize: '0.8rem', color: 'var(--error)', marginTop: '8px' }}>No tienes permisos para realizar movimientos.</p>}
+                    </div>
 
-                            {selectedPotreradaId && (
-                                <button 
-                                    type="button" 
-                                    onClick={() => setStep(2)}
-                                    style={{ marginTop: '12px' }}
-                                    disabled={!isAdminOrCowboy}
-                                >
-                                    Continuar
-                                </button>
-                            )}
-                            {!isAdminOrCowboy && <p style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--error)' }}>No tienes permisos para realizar movimientos.</p>}
-                        </>
-                    )}
-
-                    {step === 2 && (
+                    {selectedPotreradaId && (
                         <>
-                            <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
-                                    <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>Potrerada seleccionada: <span style={{ color: 'white' }}>{potreradas.find(p => p.id === selectedPotreradaId)?.nombre}</span></p>
-                                    <p style={{ margin: '8px 0 0 0', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Ubicación Actual:</p>
-                                    <p style={{ margin: '4px 0 0 0', fontWeight: 'bold', color: 'white' }}>
-                                        {currentPotrero ? currentPotrero.nombre : 'Sin potrero asignado'}
-                                    </p>
-                                </div>
-                                <button type="button" onClick={() => setStep(1)} style={{ width: 'auto', backgroundColor: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', padding: '4px 12px', fontSize: '0.8rem' }}>
-                                    Cambiar
-                                </button>
+                            <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ubicación Actual</p>
+                                <p style={{ margin: '4px 0 0 0', fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '1.1rem' }}>
+                                    {currentPotrero ? currentPotrero.nombre : 'Sin potrero asignado'}
+                                </p>
                             </div>
 
                             {/* Lógica Simplificada: Si hay rotación asignada o detectada, solo mostrar potreros */}
                             {(!potreradas.find(p => p.id === selectedPotreradaId)?.id_rotacion && !currentPotrero?.id_rotacion) && (
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>2. ¿A dónde se moverá la potrerada?</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>¿A dónde se moverá la potrerada?</label>
                                     <div style={{ display: 'flex', gap: '10px' }}>
                                         <button 
                                             type="button" 
@@ -253,10 +229,11 @@ export default function Movements() {
                                                 flex: 1, 
                                                 backgroundColor: rotacionMode === 'misma' ? 'var(--primary)' : 'transparent',
                                                 border: rotacionMode === 'misma' ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.2)',
-                                                color: rotacionMode === 'misma' ? 'white' : 'var(--text-muted)'
+                                                color: rotacionMode === 'misma' ? 'white' : 'var(--text-muted)',
+                                                padding: '12px'
                                             }}
                                         >
-                                            Seguir en misma rotación
+                                            Misma rotación
                                         </button>
                                         <button 
                                             type="button" 
@@ -269,10 +246,11 @@ export default function Movements() {
                                                 flex: 1, 
                                                 backgroundColor: rotacionMode === 'cambiar' ? 'var(--primary)' : 'transparent',
                                                 border: rotacionMode === 'cambiar' ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.2)',
-                                                color: rotacionMode === 'cambiar' ? 'white' : 'var(--text-muted)'
+                                                color: rotacionMode === 'cambiar' ? 'white' : 'var(--text-muted)',
+                                                padding: '12px'
                                             }}
                                         >
-                                            Cambiar a otra rotación
+                                            Cambiar rotación
                                         </button>
                                     </div>
                                 </div>
@@ -280,7 +258,7 @@ export default function Movements() {
 
                             {rotacionMode === 'cambiar' && (
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>3. Seleccionar Nueva Rotación *</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Seleccionar Nueva Rotación *</label>
                                     <select 
                                         value={selectedTargetRotacionId} 
                                         onChange={(e) => {
@@ -299,9 +277,7 @@ export default function Movements() {
 
                             {selectedTargetRotacionId && (
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>
-                                        {potreradas.find(p => p.id === selectedPotreradaId)?.id_rotacion ? '2.' : (rotacionMode === 'cambiar' ? '4.' : '3.')} Potrero Destino *
-                                    </label>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Potrero Destino *</label>
                                     <select 
                                         value={selectedTargetPotreroId} 
                                         onChange={(e) => setSelectedTargetPotreroId(e.target.value)}
@@ -310,7 +286,7 @@ export default function Movements() {
                                     >
                                         <option value="">-- Seleccione Potrero Destino --</option>
                                         {(targetRotacion ? targetRotacion.potreros : [])
-                                            .filter(p => p.id !== currentPotrero?.id) // Ocultar potrero actual
+                                            .filter(p => p.id !== currentPotrero?.id)
                                             .map(p => (
                                                 <option key={p.id} value={p.id}>{p.nombre}</option>
                                             ))
@@ -319,10 +295,10 @@ export default function Movements() {
                                 </div>
                             )}
 
-                            {rotacionMode && selectedTargetPotreroId && (
+                            {selectedTargetPotreroId && (
                                 <>
-                                    <div>
-                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>{rotacionMode === 'cambiar' ? '5.' : '4.'} Fecha de Movimiento *</label>
+                                    <div style={{ opacity: 0.6 }}>
+                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Fecha de Movimiento</label>
                                         <input 
                                             type="date"
                                             value={fechaMovimiento}
@@ -334,7 +310,7 @@ export default function Movements() {
                                     <button 
                                         type="submit" 
                                         disabled={loading || !selectedTargetPotreroId || !selectedPotreradaId || !isAdminOrCowboy}
-                                        style={{ marginTop: '12px' }}
+                                        style={{ marginTop: '12px', padding: '14px' }}
                                     >
                                         {loading ? 'Guardando...' : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Save size={20}/> Registrar Movimiento</span>}
                                     </button>
