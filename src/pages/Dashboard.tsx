@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -98,6 +98,14 @@ export default function Dashboard() {
         rango3: 0, // 481 - 530
         rango4: 0  // > 530
     });
+    const [animalesPorRango, setAnimalesPorRango] = useState<Record<string, any[]>>({
+        rango1: [], rango2: [], rango3: [], rango4: []
+    });
+    const [rangoModalVisible, setRangoModalVisible] = useState(false);
+    const [selectedRangoData, setSelectedRangoData] = useState<{
+        nombre: string,
+        animales: any[]
+    } | null>(null);
 
     const handleOpenMuertes = async () => {
         setMuertesModalVisible(true);
@@ -131,6 +139,8 @@ export default function Dashboard() {
                 .from('animales')
                 .select(`
                     id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, nombre_propietario, estado, fecha_muerte,
+                    potreros ( nombre ),
+                    potreradas ( nombre ),
                     registros_pesaje (
                         id_animal, peso, fecha, etapa, gdp_calculada, gmp_calculada
                     )
@@ -322,6 +332,7 @@ export default function Dashboard() {
                 // Calcular Distribución de Pesos Estimados
                 const gdpPromedio = countGdpTotal > 0 ? (gdpSumaTotal / countGdpTotal) : 0.45;
                 const dist = { rango1: 0, rango2: 0, rango3: 0, rango4: 0 };
+                const distAnimales: Record<string, any[]> = { rango1: [], rango2: [], rango3: [], rango4: [] };
                 
                 animales.forEach((animal: any) => {
                     const misPesajes = pesajesMap[animal.id] || [];
@@ -332,12 +343,29 @@ export default function Dashboard() {
                     const dias = differenceInDays(new Date(), new Date(fechaRef)) || 0;
                     const estimado = pesoRef + (dias * gdpPromedio);
 
-                    if (estimado < 430) dist.rango1++;
-                    else if (estimado <= 480) dist.rango2++;
-                    else if (estimado <= 530) dist.rango3++;
-                    else dist.rango4++;
+                    const objAnimal = {
+                        ...animal,
+                        ultimoPeso: pesoRef,
+                        pesoEstimado: estimado,
+                        potrerada: animal.potreradas?.nombre || animal.potreros?.nombre || 'Sin Ubicación'
+                    };
+
+                    if (estimado < 430) {
+                        dist.rango1++;
+                        distAnimales.rango1.push(objAnimal);
+                    } else if (estimado <= 480) {
+                        dist.rango2++;
+                        distAnimales.rango2.push(objAnimal);
+                    } else if (estimado <= 530) {
+                        dist.rango3++;
+                        distAnimales.rango3.push(objAnimal);
+                    } else {
+                        dist.rango4++;
+                        distAnimales.rango4.push(objAnimal);
+                    }
                 });
                 setDistribucionPesos(dist);
+                setAnimalesPorRango(distAnimales);
             }
             setLoading(false);
         }
@@ -676,9 +704,9 @@ export default function Dashboard() {
                                 <TrendingUp size={18} color="var(--primary)" />
                                 <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>Proyección de Animales por Rango de Peso (Estimado Hoy)</h3>
                             </div>
-                            <div style={{ padding: '20px' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-                                    <div style={{ flex: 1 }}>
+                            <div style={{ padding: '24px' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px' }}>
+                                    <div style={{ flex: '1 1 350px', minWidth: '0' }}>
                                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                             <thead>
                                                 <tr>
@@ -687,21 +715,49 @@ export default function Dashboard() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr>
+                                                <tr 
+                                                    onClick={() => {
+                                                        setSelectedRangoData({ nombre: '< 430 kg', animales: animalesPorRango.rango1 });
+                                                        setRangoModalVisible(true);
+                                                    }}
+                                                    style={{ cursor: 'pointer' }}
+                                                    className="table-row-hover"
+                                                >
                                                     <td style={{ padding: '12px 12px', fontSize: '1rem' }}>&lt; 430 kg</td>
-                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango1}</td>
+                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango1}</td>
                                                 </tr>
-                                                <tr>
+                                                <tr 
+                                                    onClick={() => {
+                                                        setSelectedRangoData({ nombre: '431 - 480 kg', animales: animalesPorRango.rango2 });
+                                                        setRangoModalVisible(true);
+                                                    }}
+                                                    style={{ cursor: 'pointer' }}
+                                                    className="table-row-hover"
+                                                >
                                                     <td style={{ padding: '12px 12px', fontSize: '1rem' }}>431 - 480 kg</td>
-                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango2}</td>
+                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango2}</td>
                                                 </tr>
-                                                <tr>
+                                                <tr 
+                                                    onClick={() => {
+                                                        setSelectedRangoData({ nombre: '481 - 530 kg', animales: animalesPorRango.rango3 });
+                                                        setRangoModalVisible(true);
+                                                    }}
+                                                    style={{ cursor: 'pointer' }}
+                                                    className="table-row-hover"
+                                                >
                                                     <td style={{ padding: '12px 12px', fontSize: '1rem' }}>481 - 530 kg</td>
-                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango3}</td>
+                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango3}</td>
                                                 </tr>
-                                                <tr>
+                                                <tr 
+                                                    onClick={() => {
+                                                        setSelectedRangoData({ nombre: '> 530 kg', animales: animalesPorRango.rango4 });
+                                                        setRangoModalVisible(true);
+                                                    }}
+                                                    style={{ cursor: 'pointer' }}
+                                                    className="table-row-hover"
+                                                >
                                                     <td style={{ padding: '12px 12px', fontSize: '1rem' }}>&gt; 530 kg</td>
-                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango4}</td>
+                                                    <td style={{ padding: '12px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>{distribucionPesos.rango4}</td>
                                                 </tr>
                                                 <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
                                                     <td style={{ padding: '12px 12px', fontWeight: 'bold', fontSize: '1rem' }}>Total General</td>
@@ -711,10 +767,11 @@ export default function Dashboard() {
                                         </table>
                                     </div>
                                     <div style={{ 
+                                        flex: '1 1 320px',
                                         display: 'flex', 
                                         flexDirection: 'column', 
                                         justifyContent: 'center', 
-                                        padding: '24px', 
+                                        padding: '28px', 
                                         background: 'rgba(76, 175, 80, 0.05)', 
                                         borderRadius: '16px',
                                         border: '1px solid rgba(76, 175, 80, 0.1)'
@@ -1037,6 +1094,74 @@ export default function Dashboard() {
                     )}
                     {showReporteExcel && (
                         <ReporteInventarioExcel onClose={() => setShowReporteExcel(false)} />
+                    )}
+
+                    {/* Modal Detalle de Pesos por Rango */}
+                    {rangoModalVisible && selectedRangoData && (
+                        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div className="modal-content" style={{ maxWidth: '900px', width: '95%', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Animales en Rango: {selectedRangoData.nombre}</h2>
+                                        <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Lista detallada de animales con peso estimado a hoy.</p>
+                                    </div>
+                                    <button className="btn-icon" onClick={() => setRangoModalVisible(false)}><Timer size={24} style={{ transform: 'rotate(45deg)' }} /></button>
+                                </div>
+                                <div style={{ flex: 1, overflowY: 'auto', padding: '0' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                        <thead style={{ position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                                            <tr>
+                                                <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Potrerada</th>
+                                                <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Chapeta</th>
+                                                <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Peso Actual Real</th>
+                                                <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Peso Estimado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(() => {
+                                                const grouped = selectedRangoData.animales.reduce((acc: Record<string, any[]>, a) => {
+                                                    const key = a.potrerada || 'Sin Ubicación';
+                                                    if (!acc[key]) acc[key] = [];
+                                                    acc[key].push(a);
+                                                    return acc;
+                                                }, {});
+
+                                                return Object.entries(grouped).map(([potrero, animals]) => (
+                                                    <Fragment key={potrero}>
+                                                        <tr style={{ background: 'rgba(76, 175, 80, 0.08)', borderLeft: '4px solid var(--primary)' }}>
+                                                            <td colSpan={4} style={{ padding: '10px 24px', fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '0.95rem' }}>
+                                                                📍 Potrerada: {potrero} ({animals.length} animales)
+                                                            </td>
+                                                        </tr>
+                                                        {animals.map((a, idx) => (
+                                                            <tr key={`${potrero}-${idx}`} className="table-row-hover">
+                                                                <td style={{ padding: '14px 24px' }}>
+                                                                    <span style={{ 
+                                                                        padding: '4px 10px', 
+                                                                        borderRadius: '12px', 
+                                                                        background: 'rgba(255,255,255,0.05)',
+                                                                        fontSize: '0.8rem',
+                                                                        color: 'var(--text-muted)'
+                                                                    }}>
+                                                                        {a.potrerada}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ padding: '14px 24px', fontWeight: 'bold', color: 'var(--primary-light)' }}>#{a.numero_chapeta}</td>
+                                                                <td style={{ padding: '14px 24px' }}>{Math.round(a.ultimoPeso)} kg</td>
+                                                                <td style={{ padding: '14px 24px', fontWeight: 'bold', color: 'white' }}>{Math.round(a.pesoEstimado)} kg</td>
+                                                            </tr>
+                                                        ))}
+                                                    </Fragment>
+                                                ));
+                                            })()}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div style={{ padding: '20px 24px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'right' }}>
+                                    <button className="btn-secondary" onClick={() => setRangoModalVisible(false)} style={{ width: 'auto', padding: '10px 24px' }}>Cerrar</button>
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </>
             )}
