@@ -436,8 +436,7 @@ export default function Purchase() {
                 </div>
             )}
 
-            {/* Agregamos el reporte simple también si fuera necesario, o nos aseguramos que reciba el prop */}
-            {/* Si existiera un selector para el tipo de reporte, lo usaríamos aquí */};
+            {/* Si existiera un selector para el tipo de reporte, lo usaríamos aquí */}
         </div>
     );
 }
