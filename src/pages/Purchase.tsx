@@ -45,6 +45,7 @@ export default function Purchase() {
     const [showReport, setShowReport] = useState(false);
     const [reportData, setReportData] = useState<{ fecha: string, animales: AnimalCompra[], pesoCompraTotal?: number } | null>(null);
     const [lastTags, setLastTags] = useState<{ owner: string, tag: string }[]>([]);
+    const [existingTags, setExistingTags] = useState<Set<string>>(new Set());
     const [showLastTags, setShowLastTags] = useState(false);
 
     useEffect(() => {
@@ -124,6 +125,7 @@ export default function Purchase() {
         });
 
         setLastTags(latest);
+        setExistingTags(new Set(data.map(a => a.numero_chapeta.trim())));
     };
 
     const generarFilas = (e: React.FormEvent) => {
@@ -601,52 +603,66 @@ export default function Purchase() {
                             </tr>
                         </thead>
                         <tbody>
-                            {animales.map((a, index) => (
-                                <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <td style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>{index + 1}</td>
-                                    <td style={{ padding: '8px 16px' }}>
-                                        <input
-                                            type="text"
-                                            placeholder="Ej. 1024"
-                                            value={a.numero_chapeta}
-                                            onChange={e => updateAnimal(index, 'numero_chapeta', e.target.value)}
-                                            style={{ marginBottom: 0, padding: '10px' }}
-                                        />
-                                    </td>
-                                    <td style={{ padding: '8px 16px' }}>
-                                        <input
-                                            type="number"
-                                            step="0.1"
-                                            placeholder="Ej. 250"
-                                            value={a.peso_ingreso}
-                                            onChange={e => updateAnimal(index, 'peso_ingreso', e.target.value)}
-                                            style={{ marginBottom: 0, padding: '10px' }}
-                                        />
-                                    </td>
-                                    <td style={{ padding: '8px 16px' }}>
-                                        <select
-                                            value={a.propietario}
-                                            onChange={e => updateAnimal(index, 'propietario', e.target.value)}
-                                            style={{ marginBottom: 0, padding: '10px' }}
-                                        >
-                                            <option value="">Seleccionar...</option>
-                                            {propietarios.map(p => (
-                                                <option key={p.id} value={p.nombre}>{p.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </td>
-                                    <td style={{ padding: '16px' }}>
-                                        <button
-                                            onClick={() => removeFila(index)}
-                                            style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.2)', width: 'auto' }}
-                                            onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
-                                            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.2)'}
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
+                            {animales.map((a, index) => {
+                                    const tagTrimmed = a.numero_chapeta.trim();
+                                    const isDuplicateInList = tagTrimmed !== '' && animales.filter(item => item.numero_chapeta.trim() === tagTrimmed).length > 1;
+                                    const isDuplicateInDB = tagTrimmed !== '' && existingTags.has(tagTrimmed);
+                                    const hasError = isDuplicateInList || isDuplicateInDB;
+
+                                    return (
+                                        <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <td style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>{index + 1}</td>
+                                            <td style={{ padding: '8px 16px' }}>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Ej. 1024"
+                                                    value={a.numero_chapeta}
+                                                    onChange={e => updateAnimal(index, 'numero_chapeta', e.target.value)}
+                                                    style={{ 
+                                                        marginBottom: 0, 
+                                                        padding: '10px',
+                                                        border: hasError ? '2px solid var(--error)' : '1px solid rgba(255,255,255,0.1)',
+                                                        backgroundColor: hasError ? 'rgba(244, 67, 54, 0.05)' : 'transparent'
+                                                    }}
+                                                />
+                                                {isDuplicateInList && <div style={{ color: 'var(--error)', fontSize: '0.7rem', marginTop: '4px' }}>Repetido en la lista</div>}
+                                                {isDuplicateInDB && <div style={{ color: 'var(--error)', fontSize: '0.7rem', marginTop: '4px' }}>Ya existe en inventario</div>}
+                                            </td>
+                                            <td style={{ padding: '8px 16px' }}>
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    placeholder="Ej. 250"
+                                                    value={a.peso_ingreso}
+                                                    onChange={e => updateAnimal(index, 'peso_ingreso', e.target.value)}
+                                                    style={{ marginBottom: 0, padding: '10px' }}
+                                                />
+                                            </td>
+                                            <td style={{ padding: '8px 16px' }}>
+                                                <select
+                                                    value={a.propietario}
+                                                    onChange={e => updateAnimal(index, 'propietario', e.target.value)}
+                                                    style={{ marginBottom: 0, padding: '10px' }}
+                                                >
+                                                    <option value="">Seleccionar...</option>
+                                                    {propietarios.map(p => (
+                                                        <option key={p.id} value={p.nombre}>{p.nombre}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                <button
+                                                    onClick={() => removeFila(index)}
+                                                    style={{ backgroundColor: 'transparent', padding: '4px', color: 'rgba(255,255,255,0.2)', width: 'auto' }}
+                                                    onMouseEnter={e => e.currentTarget.style.color = 'var(--error)'}
+                                                    onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.2)'}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                         </tbody>
                     </table>
 
