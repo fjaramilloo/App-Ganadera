@@ -497,7 +497,7 @@ export default function HistorialCompras() {
                                     <Info size={14} /> Detalle por Animal — clic en una fila para ver la tarjeta del animal
                                 </h4>
                                 <div className="table-container">
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                         <thead>
                                             <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                                 <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>CHAPETA</th>

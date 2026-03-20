@@ -1021,7 +1021,7 @@ export default function Dashboard() {
                                 </div>
                                 <div style={{ padding: '24px', overflowY: 'auto' }}>
                                     <div className="table-container">
-                                        <table style={{ minWidth: '800px' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                             <thead>
                                                 <tr>
                                                     <th>Chapeta</th>

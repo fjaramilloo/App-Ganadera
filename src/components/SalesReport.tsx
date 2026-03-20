@@ -144,16 +144,14 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                     color: #666;
                 }
                 .report-tables-wrapper {
-                    display: block;
                     width: 100%;
-                    border: 1px solid #ddd;
-                    margin-bottom: 20px;
-                    overflow-x: auto;
+                    margin-bottom: 25px;
                 }
                 .report-table {
                     width: 100%;
                     border-collapse: collapse;
                     font-size: 11px;
+                    border: 1px solid #ddd;
                 }
                 .report-table th, .report-table td {
                     border: 1px solid #ddd;
@@ -170,20 +168,19 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                 }
                 .report-summary-box {
                     margin-top: 30px;
-                    display: flex;
-                    width: 100%;
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
                     background: #f8f9fa;
                     border-radius: 8px;
                     overflow: hidden;
                     border: 1px solid #eee;
+                    gap: 1px;
                 }
                 .summary-item {
-                    flex: 1;
-                    padding: 15px 20px;
+                    padding: 15px 10px;
                     text-align: center;
-                    border-right: 1px solid #eee;
+                    background: white;
                 }
-                .summary-item:last-child { border-right: none !important; }
                 .summary-label { 
                     display: block;
                     font-size: 11px;
@@ -217,31 +214,63 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                 }
 
                 /* Responsive Adjustments */
-                @media (max-width: 650px) {
+                @media (max-width: 768px) {
+                    .report-modal-overlay {
+                        padding: 10px;
+                    }
                     .report-container {
-                        padding: 20px;
+                        padding: 20px 15px;
                     }
-                    .report-tables-wrapper {
-                        flex-direction: column;
-                        border: none;
-                    }
-                    .report-table {
-                        width: 100% !important;
-                        margin-bottom: 20px;
-                        border: 1px solid #eee;
-                    }
-                    .report-table:last-child {
-                        margin-bottom: 0;
+                    .report-title {
+                        font-size: 20px;
                     }
                     .report-summary-box {
-                        flex-direction: column;
+                        grid-template-columns: repeat(2, 1fr);
                     }
-                    .summary-item {
-                        border-right: none;
-                        border-bottom: 1px solid #eee;
+                    
+                    /* Table to Cards on mobile */
+                    .report-table thead { display: none; }
+                    .report-table, .report-table tbody, .report-table tr, .report-table td {
+                        display: block;
+                        width: 100%;
                     }
-                    .summary-item:last-child {
-                        border-bottom: none;
+                    .report-table tr {
+                        margin-bottom: 15px;
+                        border: 1px solid #eee;
+                        border-radius: 8px;
+                        padding: 10px;
+                        background: #fff;
+                    }
+                    .report-table td {
+                        text-align: left !important;
+                        border: none;
+                        padding: 4px 8px;
+                        display: flex;
+                        justify-content: space-between;
+                        font-size: 12px;
+                    }
+                    .report-table td::before {
+                        content: attr(data-label);
+                        font-weight: 700;
+                        color: #888;
+                        margin-right: 10px;
+                        text-transform: uppercase;
+                        font-size: 10px;
+                    }
+                    .report-table td:first-child {
+                        background: #f8f9fa;
+                        margin: -10px -10px 10px -10px;
+                        width: calc(100% + 20px);
+                        border-radius: 8px 8px 0 0;
+                        padding: 8px 15px;
+                        font-weight: 700;
+                    }
+                    .report-table td:first-child::before { content: "Animal #"; }
+                }
+
+                @media (max-width: 480px) {
+                    .report-summary-box {
+                        grid-template-columns: 1fr;
                     }
                 }
                 `}
@@ -319,15 +348,15 @@ export default function SalesReport({ fincaNombre, fechaVenta, animales, comprad
                                 return (
                                     <tr key={i}>
                                         <td style={{ color: '#888', fontSize: '10px' }}>{i + 1}</td>
-                                        <td style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
-                                        <td style={{ fontWeight: '700' }}>{a.peso_salida} kg</td>
-                                        <td style={{ color: (a.gmp || 0) > umbralAlto ? 'var(--success)' : ((a.gmp || 0) > umbralMedio ? 'var(--warning)' : ((a.gmp || 0) > 0 ? 'var(--error)' : '#888')) }}>
+                                        <td data-label="Chapeta" style={{ fontWeight: '600' }}>{a.numero_chapeta}</td>
+                                        <td data-label="Peso" style={{ fontWeight: '700' }}>{a.peso_salida} kg</td>
+                                        <td data-label="GMP" style={{ color: (a.gmp || 0) > umbralAlto ? 'var(--success)' : ((a.gmp || 0) > umbralMedio ? 'var(--warning)' : ((a.gmp || 0) > 0 ? 'var(--error)' : '#888')) }}>
                                             {a.gmp && a.gmp > 0 ? `${a.gmp.toFixed(1)} kg` : '-'}
                                         </td>
-                                        <td style={{ color: '#666' }}>{a.propietario}</td>
-                                        <td style={{ color: '#666' }}>{a.potreroNombre || '-'}</td>
-                                        <td>{mesesFinca} m</td>
-                                        <td>{mesesCeba !== '-' ? `${mesesCeba} m` : '-'}</td>
+                                        <td data-label="Marca" style={{ color: '#666' }}>{a.propietario}</td>
+                                        <td data-label="Potrero" style={{ color: '#666' }}>{a.potreroNombre || '-'}</td>
+                                        <td data-label="Meses Finca">{mesesFinca} m</td>
+                                        <td data-label="Meses Ceba">{mesesCeba !== '-' ? `${mesesCeba} m` : '-'}</td>
                                     </tr>
                                 );
                             })}

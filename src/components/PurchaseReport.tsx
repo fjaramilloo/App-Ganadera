@@ -83,10 +83,21 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                     width: 100%;
                     max-width: 750px;
                     padding: 30px;
-                    border-radius: 4px;
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                    border-radius: 8px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.25);
                     height: fit-content;
                     font-family: 'Inter', sans-serif;
+                }
+                @media (max-width: 600px) {
+                    .report-modal-overlay {
+                        padding: 10px;
+                    }
+                    .report-container {
+                        padding: 15px;
+                    }
+                    .report-title {
+                        font-size: 18px;
+                    }
                 }
                 .report-header {
                     text-align: center;
@@ -112,10 +123,9 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                     gap: 15px;
                 }
                 .summary-grid {
-                    display: grid;
-                    grid-template-columns: repeat(${pesoCompraTotal ? 4 : 3}, 1fr);
-                    gap: 10px;
-                    margin-bottom: 20px;
+                    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                    gap: 12px;
+                    margin-bottom: 25px;
                 }
                 .summary-item {
                     background: #f8f9fa;
@@ -149,11 +159,19 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                     font-size: 16px;
                     font-weight: 700;
                 }
+                .report-table-wrapper {
+                    width: 100%;
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                    margin-bottom: 20px;
+                    border: 1px solid #eee;
+                    border-radius: 4px;
+                }
                 .report-table {
                     width: 100%;
                     border-collapse: collapse;
                     font-size: 11px;
-                    margin-bottom: 20px;
+                    min-width: 450px;
                 }
                 .report-table th, .report-table td {
                     border: 1px solid #ddd;
@@ -175,6 +193,7 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                     border-collapse: collapse;
                     font-size: 11px;
                     margin-top: 5px;
+                    min-width: 450px;
                 }
                 .report-footer-table th, .report-footer-table td {
                     border: 1px solid #ddd;
@@ -242,7 +261,8 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                 </div>
 
                 <div className="table-title">Detalle de Ingresos</div>
-                <table className="report-table">
+                <div className="report-table-wrapper">
+                    <table className="report-table">
                     <thead>
                         <tr>
                             <th style={{ width: '40px' }}>#</th>
@@ -262,9 +282,11 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                         ))}
                     </tbody>
                 </table>
+                </div>
 
                 <div className="table-title" style={{ marginTop: '20px' }}>Resumen por Marca</div>
-                <table className="report-footer-table">
+                <div className="report-table-wrapper">
+                    <table className="report-footer-table">
                     <thead>
                         <tr>
                             <th style={{ textAlign: 'left' }}>Propietario</th>
@@ -284,6 +306,7 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                         ))}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     );

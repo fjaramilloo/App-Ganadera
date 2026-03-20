@@ -645,7 +645,7 @@ export default function Potreradas() {
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--primary)' }}>Cargando potreradas...</div>
             ) : (
                 <div className="table-container">
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                 <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nombre Potrerada</th>
@@ -1008,7 +1008,7 @@ export default function Potreradas() {
                                         <Info size={14} /> Detalle por Animal
                                     </h4>
                                     <div className="table-container">
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '450px' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                             <thead>
                                                 <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                                     <th 
