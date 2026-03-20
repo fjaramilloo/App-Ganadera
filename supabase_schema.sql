@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS animales (
     etapa etapa_animal NOT NULL,
     fecha_ingreso DATE NOT NULL,
     peso_ingreso NUMERIC NOT NULL,
+    peso_compra NUMERIC,
     id_potrero_actual UUID REFERENCES potreros(id) ON DELETE SET NULL,
     id_potrerada UUID REFERENCES potreradas(id) ON DELETE SET NULL,
     estado estado_animal DEFAULT 'activo',

@@ -19,6 +19,8 @@ export default function Purchase() {
     const [proveedores, setProveedores] = useState<{ id: string, nombre: string }[]>([]);
     const [selectedProveedor, setSelectedProveedor] = useState('');
     const [observaciones, setObservaciones] = useState('');
+    const [incluirPesoCompra, setIncluirPesoCompra] = useState(false);
+    const [pesoCompraTotal, setPesoCompraTotal] = useState('');
 
     const [loading, setLoading] = useState(false);
     const [msjExito, setMsjExito] = useState('');
@@ -193,6 +195,8 @@ export default function Purchase() {
         setMsjExito('');
         setSelectedProveedor('');
         setObservaciones('');
+        setIncluirPesoCompra(false);
+        setPesoCompraTotal('');
     };
 
     if (role === 'observador') {
@@ -264,7 +268,7 @@ export default function Purchase() {
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                         <div style={{ flex: '1 1 100%' }}>
                             <label>Observaciones de la Compra</label>
                             <input
@@ -275,6 +279,35 @@ export default function Purchase() {
                                 disabled={loading || animales.length > 0}
                             />
                         </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: 'rgba(255,255,255,0.03)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <input 
+                                type="checkbox" 
+                                id="checkPesoCompra"
+                                checked={incluirPesoCompra}
+                                onChange={e => setIncluirPesoCompra(e.target.checked)}
+                                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                                disabled={loading || animales.length > 0}
+                            />
+                            <label htmlFor="checkPesoCompra" style={{ cursor: 'pointer', margin: 0 }}>¿Incluir Peso de Compra del lote?</label>
+                        </div>
+
+                        {incluirPesoCompra && (
+                            <div style={{ maxWidth: '300px' }}>
+                                <label>Peso Total de Compra (kg)</label>
+                                <input 
+                                    type="number" 
+                                    step="0.1"
+                                    placeholder="Peso total pagado..."
+                                    value={pesoCompraTotal}
+                                    onChange={e => setPesoCompraTotal(e.target.value)}
+                                    disabled={loading || animales.length > 0}
+                                />
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Este peso se dividirá automáticamente entre el número de animales.</p>
+                            </div>
+                        )}
                     </div>
 
                     <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
