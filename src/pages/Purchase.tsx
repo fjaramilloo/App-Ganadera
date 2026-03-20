@@ -313,7 +313,6 @@ export default function Purchase() {
                                     onChange={e => setPesoCompraTotal(e.target.value)}
                                     disabled={loading || animales.length > 0}
                                 />
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Este peso se dividirá automáticamente entre el número de animales.</p>
                             </div>
                         )}
                     </div>
