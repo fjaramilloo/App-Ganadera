@@ -435,10 +435,30 @@ export default function Purchase() {
                     <p style={{ color: 'var(--text-muted)', margin: '8px 0 0 0' }}>Módulo para el registro masivo de animales nuevos.</p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '20px', backgroundColor: isOnline ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)', color: isOnline ? 'var(--success)' : '#ff9800', fontWeight: 'bold', fontSize: '0.9rem' }}>
                         {isOnline ? <><Wifi size={18} /> Online</> : <><WifiOff size={18} /> Offline</>}
                     </div>
+                    
+                    <button 
+                        onClick={() => console.log('Compra rápida clickeada')}
+                        style={{ 
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)', 
+                            color: '#3498db', 
+                            border: '1px solid #3498db',
+                            padding: '6px 16px',
+                            borderRadius: '8px',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            width: 'auto',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        <Plus size={16} /> Compra Rápida
+                    </button>
+
                     {offlineQueue.length > 0 && isOnline && (
                         <button onClick={syncOfflineQueue} disabled={syncing} style={{ backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <UploadCloud size={18} /> {syncing ? 'Sincronizando...' : `Subir Pendientes (${offlineQueue.length})`}
