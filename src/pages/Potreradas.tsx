@@ -150,7 +150,7 @@ export default function Potreradas() {
                     numero_chapeta: a.numero_chapeta,
                     nombre_propietario: a.nombre_propietario,
                     id_potrerada: a.id_potrerada,
-                    pesoActual: registros[0] ? registros[0].peso : (a.peso_compra ?? a.peso_ingreso)
+                    pesoActual: registros[0] ? registros[0].peso : a.peso_ingreso
                 };
             });
 

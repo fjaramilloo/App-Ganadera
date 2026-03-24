@@ -591,12 +591,19 @@ export default function Inventory() {
                                 </p>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '32px' }}>
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Último Pesaje</div>
                                     <div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{pesoU} kg</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--primary-light)', marginTop: '4px' }}>{ultimoP ? 'Pesaje: ' : 'Ingreso: '} {fechaU}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--primary-light)', marginTop: '4px' }}>{ultimoP ? 'Pesaje: ' : 'Llegada: '} {fechaU}</div>
                                 </div>
+                                {selectedAnimal.peso_compra && (
+                                    <div style={{ backgroundColor: 'rgba(255, 193, 7, 0.05)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255, 193, 7, 0.2)' }}>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso de Compra (Origen)</div>
+                                        <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#ffc107' }}>{Math.round(selectedAnimal.peso_compra)} kg</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Llegada: {selectedAnimal.peso_ingreso} kg</div>
+                                    </div>
+                                )}
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso Estimado (Hoy)</div>
                                     <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: 'var(--primary-light)' }}>

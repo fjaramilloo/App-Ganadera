@@ -569,7 +569,7 @@ export default function HistorialCompras() {
                     ? format(new Date(ultimoP.fecha), 'dd/MM/yyyy', { locale: es })
                     : format(new Date(a.fecha_ingreso), 'dd/MM/yyyy', { locale: es });
 
-                const pesoBase = (a as any).peso_compra ?? a.peso_ingreso;
+                const pesoBase = a.peso_ingreso;
                 const timeline = [
                     ...registrosOrdenados.map((p, i, arr) => {
                         const siguiente = arr[i + 1] || { peso: pesoBase, fecha: a.fecha_ingreso };
@@ -608,11 +608,16 @@ export default function HistorialCompras() {
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '32px' }}>
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso de Ingreso</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{(a as any).peso_compra ?? a.peso_ingreso} kg</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso de Llegada</div>
+                                    <div style={{ fontSize: '1.6rem', fontWeight: 'bold' }}>{a.peso_ingreso} kg</div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--primary-light)', marginTop: '4px' }}>
                                         {format(new Date(a.fecha_ingreso + 'T12:00:00'), 'dd/MM/yyyy')}
                                     </div>
+                                    {(a as any).peso_compra && (
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--warning)', marginTop: '6px' }}>
+                                            Compra: {Math.round((a as any).peso_compra)} kg
+                                        </div>
+                                    )}
                                 </div>
                                 <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '4px' }}>Peso Actual</div>
