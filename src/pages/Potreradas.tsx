@@ -781,8 +781,8 @@ export default function Potreradas() {
             )}
 
             {editingPotrerada && (
-                <div className="modal-overlay">
-                    <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }}>
+                <div className="modal-overlay" onClick={() => setEditingPotrerada(null)}>
+                    <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h2 style={{ margin: 0 }}>Editar Nombre</h2>
                             <button onClick={() => setEditingPotrerada(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
@@ -812,8 +812,8 @@ export default function Potreradas() {
             )}
 
             {managingPotrerada && (
-                <div className="modal-overlay">
-                    <div className="card modal-content" style={{ maxWidth: '800px' }}>
+                <div className="modal-overlay" onClick={() => setManagingPotrerada(null)}>
+                    <div className="card modal-content" style={{ maxWidth: '800px' }} onClick={e => e.stopPropagation()}>
                         {/* Header */}
                         <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -915,8 +915,8 @@ export default function Potreradas() {
             )}
 
             {selectedDetailId && (
-                <div className="modal-overlay">
-                    <div className="card modal-content" style={{ maxWidth: '900px' }}>
+                <div className="modal-overlay" onClick={() => setSelectedDetailId(null)}>
+                    <div className="card modal-content" style={{ maxWidth: '900px' }} onClick={e => e.stopPropagation()}>
                         {detailLoading ? (
                             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--primary)' }}>
                                 Cargando información...
@@ -1127,8 +1127,8 @@ export default function Potreradas() {
 
             {/* Modal: Formulario de Pesaje Grupal */}
             {showWeighingForm && detailData && (
-                <div className="modal-overlay">
-                    <div className="card modal-content" style={{ maxWidth: '680px' }}>
+                <div className="modal-overlay" onClick={() => { setShowWeighingForm(false); setWeighingData({}); }}>
+                    <div className="card modal-content" style={{ maxWidth: '680px' }} onClick={e => e.stopPropagation()}>
                         {/* Header */}
                         <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1233,8 +1233,8 @@ export default function Potreradas() {
             )}
 
             {showAddModal && (
-                <div className="modal-overlay">
-                    <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '32px' }}>
+                <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+                    <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '32px' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <Plus size={24} color="var(--primary)" /> Nueva Potrerada / Lote
@@ -1298,8 +1298,8 @@ export default function Potreradas() {
             )}
 
             {editingPotrerada && (
-                <div className="modal-overlay">
-                    <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '32px' }}>
+                <div className="modal-overlay" onClick={() => setEditingPotrerada(null)}>
+                    <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '32px' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <Edit2 size={24} color="var(--primary)" /> Editar Potrerada

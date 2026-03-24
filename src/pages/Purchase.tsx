@@ -407,8 +407,8 @@ export default function Purchase() {
         <div className="page-container">
             {/* Modal de Confirmación */}
             {showConfirm && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
-                    <div className="card" style={{ maxWidth: '450px', width: '100%', textAlign: 'center', border: '1px solid var(--primary)' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setShowConfirm(false)}>
+                    <div className="card" style={{ maxWidth: '450px', width: '100%', textAlign: 'center', border: '1px solid var(--primary)' }} onClick={e => e.stopPropagation()}>
                         <ShoppingCart size={40} color="var(--primary)" style={{ marginBottom: '16px' }} />
                         <h2 style={{ marginBottom: '12px' }}>Validar Información</h2>
                         <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>

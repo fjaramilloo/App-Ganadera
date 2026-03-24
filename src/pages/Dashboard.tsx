@@ -5,7 +5,7 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
     LineChart, Line, CartesianGrid, Legend, BarChart, Bar, ReferenceLine
 } from 'recharts';
-import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart } from 'lucide-react';
+import { Timer, TrendingUp, Activity, Scale, Home, MapPin, FileSpreadsheet, ShoppingCart, X } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -1100,14 +1100,14 @@ export default function Dashboard() {
 
                     {/* Modal Detalle de Pesos por Rango */}
                     {rangoModalVisible && selectedRangoData && (
-                        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <div className="modal-content" style={{ maxWidth: '900px', width: '95%', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+                        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setRangoModalVisible(false)}>
+                            <div className="modal-content" style={{ maxWidth: '900px', width: '95%', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
                                 <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
                                         <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Animales en Rango: {selectedRangoData.nombre}</h2>
                                         <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Lista detallada de animales con peso estimado a hoy.</p>
                                     </div>
-                                    <button className="btn-icon" onClick={() => setRangoModalVisible(false)}><Timer size={24} style={{ transform: 'rotate(45deg)' }} /></button>
+                                    <button className="btn-icon" onClick={() => setRangoModalVisible(false)}><X size={24} /></button>
                                 </div>
                                 <div style={{ flex: 1, overflowY: 'auto', padding: '0' }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
