@@ -26,6 +26,7 @@ interface AnimalPotrero {
     numero_chapeta: string;
     nombre_propietario: string;
     id_potrerada: string | null;
+    potreradaNombre?: string;
     pesoActual: number;
     gdp?: number;
     gmp?: number;
@@ -128,6 +129,7 @@ export default function Potreradas() {
                     numero_chapeta,
                     nombre_propietario,
                     id_potrerada,
+                    potreradas ( nombre ),
                     peso_ingreso,
                     peso_compra,
                     fecha_ingreso,
@@ -152,6 +154,7 @@ export default function Potreradas() {
                     numero_chapeta: a.numero_chapeta,
                     nombre_propietario: a.nombre_propietario,
                     id_potrerada: a.id_potrerada,
+                    potreradaNombre: a.potreradas?.nombre,
                     pesoActual: registros[0] ? registros[0].peso : a.peso_ingreso
                 };
             });
@@ -900,6 +903,9 @@ export default function Potreradas() {
                                                 <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>#{a.numero_chapeta}</div>
                                                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {a.nombre_propietario}
+                                                </div>
+                                                <div style={{ fontSize: '0.65rem', fontWeight: 'bold', marginTop: '2px', color: a.id_potrerada ? 'var(--primary-light)' : 'var(--text-muted)' }}>
+                                                    {a.id_potrerada ? `Lote: ${a.potreradaNombre}` : 'Sin lote'}
                                                 </div>
                                             </div>
                                             <button 
