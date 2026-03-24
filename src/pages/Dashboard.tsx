@@ -146,7 +146,7 @@ export default function Dashboard() {
             const { data: todosAnimales } = await supabase
                 .from('animales')
                 .select(`
-                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra, nombre_propietario, estado, fecha_muerte,
+                    id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, peso_compra, nombre_propietario, estado, fecha_muerte, id_potrerada,
                     potreros ( nombre ),
                     potreradas ( nombre ),
                     registros_pesaje (
