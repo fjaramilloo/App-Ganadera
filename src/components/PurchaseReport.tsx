@@ -225,7 +225,7 @@ export default function PurchaseReport({ fincaNombre, fechaIngreso, animales, pe
                     )}
                 </div>
 
-                <div className="table-title">Detalle de Ingresos (Matriz 3 Col.)</div>
+                <div className="table-title">Detalle de Ingresos</div>
                 <div className="animals-multi-column-grid">
                     {[0, 1, 2].map(colIdx => {
                         // Dividir el array en 3 partes
