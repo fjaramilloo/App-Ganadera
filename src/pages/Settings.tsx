@@ -29,6 +29,13 @@ export default function Settings() {
     const [msjError, setMsjError] = useState('');
     const [showExitoModal, setShowExitoModal] = useState(false);
     const [showErrorModal, setShowErrorModal] = useState(false);
+    const [reporteCarga, setReporteCarga] = useState<{
+        tipo: 'animales' | 'pesajes';
+        creados: number;
+        actualizados: number;
+        omitidos: number;
+        omitidosList: string[];
+    } | null>(null);
 
     // Estados para Cambio de Contraseña
     const [newPassword, setNewPassword] = useState('');
@@ -516,12 +523,12 @@ export default function Settings() {
                     const chapetas = rows.map((r: any) => r.numero_chapeta);
                     if (chapetas.some((c: any) => !c)) throw new Error("Todas las filas deben tener un número de chapeta.");
                     
-                    const duplicados = chapetas.filter((c: any, index: number) => chapetas.indexOf(c) !== index);
-                    if (duplicados.length > 0) {
-                        throw new Error(`El archivo CSV contiene números de chapeta duplicados: ${[...new Set(duplicados)].join(', ')}`);
+                    const duplicadosInternos = chapetas.filter((c: any, index: number) => chapetas.indexOf(c) !== index);
+                    if (duplicadosInternos.length > 0) {
+                        throw new Error(`El archivo CSV contiene números de chapeta duplicados dentro del mismo archivo: ${[...new Set(duplicadosInternos)].join(', ')}`);
                     }
 
-                    // 4. Separar animales en: nuevos (insertar) y existentes (actualizar)
+                    // 4. Identificar animales existentes en la base de datos
                     const { data: existentes, error: checkError } = await supabase
                         .from('animales')
                         .select('id, numero_chapeta')
@@ -531,10 +538,12 @@ export default function Settings() {
                     if (checkError) throw checkError;
 
                     const existentesMap = new Map(existentes?.map(e => [e.numero_chapeta, e.id]) ?? []);
+                    
+                    // Lógica solicitada: OMITIR los que ya existen
                     const rowsNuevos = rows.filter((r: any) => !existentesMap.has(r.numero_chapeta));
-                    const rowsActualizar = rows.filter((r: any) => existentesMap.has(r.numero_chapeta));
+                    const omitidosList = chapetas.filter((c: any) => existentesMap.has(c));
 
-                    // 5. Insertar animales nuevos y su pesaje inicial
+                    // 5. Insertar animales nuevos
                     let insertados = 0;
                     if (rowsNuevos.length > 0) {
                         const { data: nuevosAnimales, error: errIns } = await supabase
@@ -545,36 +554,20 @@ export default function Settings() {
                         insertados = nuevosAnimales?.length ?? 0;
                     }
 
-                    // 6. Actualizar animales existentes usando lotes paralelos (Batches)
-                    let actualizados = 0;
-                    const BATCH_SIZE = 50;
-
-                    for (let i = 0; i < rowsActualizar.length; i += BATCH_SIZE) {
-                        const batch = rowsActualizar.slice(i, i + BATCH_SIZE);
-                        await Promise.all(batch.map(async (row: any) => {
-                            const animalId = existentesMap.get(row.numero_chapeta);
-                            if (!animalId) return;
-
-                            const { numero_chapeta: _nc, id_finca: _if, ...camposActualizar } = row;
-                            
-                            const { error: errUpd } = await supabase
-                                .from('animales')
-                                .update(camposActualizar)
-                                .eq('id', animalId);
-
-                            if (!errUpd) {
-                                actualizados++;
-                            }
-                        }));
-                    }
+                    // 6. Preparar reporte detallado
+                    setReporteCarga({
+                        tipo: 'animales',
+                        creados: insertados,
+                        actualizados: 0,
+                        omitidos: omitidosList.length,
+                        omitidosList: omitidosList
+                    });
 
                     const msgPotreradas = potreradasNuevas.size > 0
-                        ? ` Se crearon ${potreradasNuevas.size} potrerada(s) nueva(s): ${[...potreradasNuevas.keys()].join(', ')}.`
+                        ? ` Además, se crearon ${potreradasNuevas.size} potrerada(s) nueva(s).`
                         : '';
-                    const partes = [];
-                    if (insertados > 0) partes.push(`${insertados} animal(es) nuevo(s) registrado(s)`);
-                    if (actualizados > 0) partes.push(`${actualizados} animal(es) existente(s) actualizado(s)`);
-                    setMsjExito(`¡Carga masiva completada! ${partes.join(' y ')}.${msgPotreradas}`);
+                    
+                    setMsjExito(`¡Proceso completado!${msgPotreradas}`);
                     setShowExitoModal(true);
                 } catch (err: any) {
                     setMsjError('Error en carga de animales: ' + err.message);
@@ -617,7 +610,7 @@ export default function Settings() {
                         throw new Error(`El archivo no corresponde a la plantilla de Seguimiento de Pesajes. Faltan columnas: ${missing.join(', ')}`);
                     }
 
-                    // 1. Obtener mapeos necesarios
+                    // 1. Obtener animales existentes
                     const { data: animalesData, error: animError } = await supabase
                         .from('animales')
                         .select('id, numero_chapeta, etapa, fecha_ingreso, peso_ingreso, fecha_ingreso_ceba, peso_ingreso_ceba')
@@ -625,12 +618,8 @@ export default function Settings() {
 
                     if (animError || !animalesData) throw new Error("No se pudieron cargar los datos de los animales");
 
-                    const { data: pts } = await supabase.from('potreros').select('id, nombre').eq('id_finca', fincaId);
-                    const mapPotreros = new Map(pts?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
-
-                    // Incluir fecha_ingreso y peso_ingreso para poder comparar luego
-                    const mapAnimales = new Map(animalesData.map(a => [
-                        a.numero_chapeta,
+                    let mapAnimales = new Map(animalesData.map(a => [
+                        a.numero_chapeta.trim(),
                         { 
                             id: a.id, 
                             etapa: a.etapa, 
@@ -641,35 +630,117 @@ export default function Settings() {
                         }
                     ]));
 
-                    const records: any[] = [];
+                    // 2. Identificar animales nuevos que vienen en el CSV de pesajes
+                    const chapetasEnCSV = new Set<string>();
+                    results.data.forEach((row: any) => {
+                        const skip = !row.numero_chapeta || !row.peso || !row.fecha;
+                        if (!skip) chapetasEnCSV.add(row.numero_chapeta.toString().trim());
+                    });
+
+                    const chapetasNuevas = Array.from(chapetasEnCSV).filter(c => !mapAnimales.has(c));
+                    
+                    if (chapetasNuevas.length > 0) {
+                        // Para animales nuevos, buscamos su pesaje más antiguo en el CSV para usarlo como ingreso
+                        const nuevosAnimalesInsert: any[] = chapetasNuevas.map(chapeta => {
+                            const pesajesAnimal = results.data.filter((r: any) => r.numero_chapeta?.toString().trim() === chapeta);
+                            // Ordenar por fecha para encontrar la más antigua
+                            pesajesAnimal.sort((a: any, b: any) => {
+                                const fA = parseFechaCol(a.fecha) || 'ZZZ';
+                                const fB = parseFechaCol(b.fecha) || 'ZZZ';
+                                return fA.localeCompare(fB);
+                            });
+                            
+                            const elMasAntiguo = pesajesAnimal[0];
+                            const fechaOld = parseFechaCol(elMasAntiguo.fecha) || new Date().toISOString().split('T')[0];
+                            const pesoOld = parseFloat(elMasAntiguo.peso) || 0;
+                            const etapaOld = elMasAntiguo.etapa?.toLowerCase() || 'levante';
+
+                            return {
+                                id_finca: fincaId,
+                                numero_chapeta: chapeta,
+                                nombre_propietario: 'Pendiente (Auto)',
+                                especie: 'bovino',
+                                sexo: 'M',
+                                etapa: etapaOld,
+                                fecha_ingreso: fechaOld,
+                                peso_ingreso: pesoOld,
+                                estado: 'activo',
+                                fecha_ingreso_ceba: etapaOld === 'ceba' ? fechaOld : null,
+                                peso_ingreso_ceba: etapaOld === 'ceba' ? pesoOld : null
+                            };
+                        });
+
+                        const { data: creados, error: errCreate } = await supabase
+                            .from('animales')
+                            .insert(nuevosAnimalesInsert)
+                            .select();
+                        
+                        if (errCreate) throw new Error(`Error creando animales nuevos: ${errCreate.message}`);
+                        
+                        // Actualizar mapa con los nuevos IDs
+                        creados?.forEach(a => {
+                            mapAnimales.set(a.numero_chapeta.trim(), {
+                                id: a.id,
+                                etapa: a.etapa,
+                                fecha_ingreso: a.fecha_ingreso,
+                                peso_ingreso: a.peso_ingreso,
+                                fecha_ingreso_ceba: a.fecha_ingreso_ceba,
+                                peso_ingreso_ceba: a.peso_ingreso_ceba
+                            });
+                        });
+                    }
+
+                    // 3. Obtener pesajes existentes para evitar duplicados
+                    //    Filtramos solo por los animales que vienen en el CSV para no traer toda la DB
+                    const idsAnimalesEnCSV = Array.from(mapAnimales.values()).map(a => a.id);
+                    const { data: pesajesExistentes, error: errPesajes } = await supabase
+                        .from('registros_pesaje')
+                        .select('id_animal, fecha, peso')
+                        .in('id_animal', idsAnimalesEnCSV);
+                    
+                    if (errPesajes) throw new Error("Error verificando duplicados de pesaje");
+
+                    const setDuplicados = new Set(pesajesExistentes?.map(p => `${p.id_animal}|${p.fecha}|${p.peso}`));
+
+                    const { data: pts } = await supabase.from('potreros').select('id, nombre').eq('id_finca', fincaId);
+                    const mapPotreros = new Map(pts?.map(p => [p.nombre.toLowerCase().trim(), p.id]));
+
+                    const recordsInsert: any[] = [];
                     const errores: string[] = [];
                     const cebaUpdates = new Map<string, { fecha: string, peso: number }>();
+                    const ingresoAActualizar = new Map<string, { fecha: string; peso: number }>();
+
+                    let omitidosDuplicados = 0;
 
                     results.data.forEach((row: any, index: number) => {
-                        const anim = mapAnimales.get(row.numero_chapeta);
-                        if (!anim) {
-                            errores.push(`Fila ${index + 2}: Chapeta ${row.numero_chapeta} no existe.`);
-                            return;
-                        }
+                        const chapeta = row.numero_chapeta?.toString().trim();
+                        if (!chapeta) return;
+
+                        const anim = mapAnimales.get(chapeta);
+                        if (!anim) return; // Ya debería existir
 
                         const peso = parseFloat(row.peso);
                         const rawFecha = row.fecha || row['fecha(Año-Mes-Día)'] || row['Fecha'];
                         const fecha = parseFechaCol(rawFecha) || new Date().toISOString().split('T')[0];
                         const potreroNombre = row.potrero?.toString().toLowerCase().trim();
 
-
-                        // Nueva lógica: Priorizar etapa del CSV, sino usar la actual del animal
-                        const etapaCSV = row.etapa?.toString().toLowerCase().trim();
-                        let etapaFinal = (etapaCSV === 'cria' || etapaCSV === 'levante' || etapaCSV === 'ceba') 
-                            ? etapaCSV 
-                            : anim.etapa;
-
                         if (isNaN(peso) || peso <= 0) {
                             errores.push(`Fila ${index + 2}: Peso inválido.`);
                             return;
                         }
 
-                        records.push({
+                        // VALIDACIÓN DE DUPLICADOS (Idempotencia)
+                        if (setDuplicados.has(`${anim.id}|${fecha}|${peso}`)) {
+                            omitidosDuplicados++;
+                            return;
+                        }
+
+                        const etapaCSV = row.etapa?.toString().toLowerCase().trim();
+                        let etapaFinal = (etapaCSV === 'cria' || etapaCSV === 'levante' || etapaCSV === 'ceba') 
+                            ? etapaCSV 
+                            : anim.etapa;
+
+                        recordsInsert.push({
                             id_animal: anim.id,
                             peso,
                             fecha,
@@ -677,14 +748,19 @@ export default function Settings() {
                             id_potrero: potreroNombre ? mapPotreros.get(potreroNombre) : null
                         });
 
-                        // Si el pesaje es de ceba, marcar al animal para actualizar su etapa actual e ingreso a ceba
+                        // Lógica de actualización de fechas de ingreso (Ingreso antiguo)
+                        if (fecha < anim.fecha_ingreso) {
+                            const actualUpdate = ingresoAActualizar.get(anim.id);
+                            if (!actualUpdate || fecha < actualUpdate.fecha) {
+                                ingresoAActualizar.set(anim.id, { fecha, peso });
+                            }
+                        }
+
+                        // Lógica de paso a ceba
                         if (etapaFinal === 'ceba') {
                             const fechaDB = anim.fecha_ingreso_ceba;
                             const actualBuffer = cebaUpdates.get(anim.id);
-                            
-                            // Si no tiene fecha en DB o la del CSV es anterior...
                             if (!fechaDB || fecha < fechaDB) {
-                                // ...y si no hay nada en el buffer o la del CSV es anterior a la del buffer
                                 if (!actualBuffer || fecha < actualBuffer.fecha) {
                                     cebaUpdates.set(anim.id, { fecha, peso });
                                 }
@@ -692,40 +768,22 @@ export default function Settings() {
                         }
                     });
 
-                    if (records.length === 0) {
-                        throw new Error("El archivo no contenía datos válidos o compatibles con los animales de esta finca.");
+                    if (recordsInsert.length === 0 && omitidosDuplicados === 0) {
+                        throw new Error("El archivo no contenía datos válidos.");
                     }
 
-                    // 2. Detectar pesajes con fecha anterior a fecha_ingreso del animal
-                    //    Para cada animal afectado, guardamos la fecha/peso más antiguo del CSV
-                    const ingresoAActualizar: Map<string, { fecha: string; peso: number }> = new Map();
-
-                    records.forEach(r => {
-                        const animInfo = animalesData.find(a => a.id === r.id_animal);
-                        if (!animInfo) return;
-                        if (r.fecha < animInfo.fecha_ingreso) {
-                            const existente = ingresoAActualizar.get(r.id_animal);
-                            if (!existente || r.fecha < existente.fecha) {
-                                ingresoAActualizar.set(r.id_animal, { fecha: r.fecha, peso: r.peso });
-                            }
+                    // 4. Ejecutar actualizaciones de animales (Ingreso y Ceba)
+                    let animalesIngresoActualizados = 0;
+                    if (ingresoAActualizar.size > 0) {
+                        for (const [idAnimal, nuevoDato] of ingresoAActualizar.entries()) {
+                            const { error: updErr } = await supabase
+                                .from('animales')
+                                .update({ fecha_ingreso: nuevoDato.fecha, peso_ingreso: nuevoDato.peso })
+                                .eq('id', idAnimal);
+                            if (!updErr) animalesIngresoActualizados++;
                         }
-                    });
-
-                    // Actualizar animales con fecha/peso de ingreso más antiguos
-                    let animalesActualizados = 0;
-                    for (const [idAnimal, nuevoDato] of ingresoAActualizar.entries()) {
-                        const { error: updErr } = await supabase
-                            .from('animales')
-                            .update({ fecha_ingreso: nuevoDato.fecha, peso_ingreso: nuevoDato.peso })
-                            .eq('id', idAnimal);
-                        if (!updErr) animalesActualizados++;
                     }
 
-                    // 3. Insertar los pesajes
-                    const { error: insertError } = await supabase.from('registros_pesaje').insert(records);
-                    if (insertError) throw insertError;
-
-                    // 4. Actualizar etapa de animales que pasaron a ceba
                     if (cebaUpdates.size > 0) {
                         for (const [id, data] of cebaUpdates.entries()) {
                             await supabase
@@ -740,14 +798,41 @@ export default function Settings() {
                         }
                     }
 
-                    let msg = `¡Carga exitosa! Se registraron ${records.length} seguimientos de pesaje.`;
-                    if (animalesActualizados > 0) {
-                        msg += ` Se actualizó automáticamente la fecha y peso de ingreso de ${animalesActualizados} animal(es) porque se encontraron pesajes anteriores a su ingreso registrado.`;
+                    // 5. Insertar los nuevos pesajes
+                    let pesajesInsertados = 0;
+                    if (recordsInsert.length > 0) {
+                        const { error: insertError } = await supabase.from('registros_pesaje').insert(recordsInsert);
+                        if (insertError) throw insertError;
+                        pesajesInsertados = recordsInsert.length;
                     }
+
+                    // 6. Mensaje de éxito detallado
+                    let msg = `¡Carga inteligente completada!`;
+                    const resultados = [];
+                    if (chapetasNuevas.length > 0) resultados.push(`se crearon ${chapetasNuevas.length} animales nuevos`);
+                    if (pesajesInsertados > 0) resultados.push(`se registraron ${pesajesInsertados} pesajes nuevos`);
+                    if (omitidosDuplicados > 0) resultados.push(`se omitieron ${omitidosDuplicados} pesajes que ya existían`);
+                    
+                    if (resultados.length > 0) {
+                        msg += ` Se procesó exitosamente: ${resultados.join(', ')}.`;
+                    }
+                    if (animalesIngresoActualizados > 0) {
+                        msg += ` Además, se recalibró el peso de ingreso de ${animalesIngresoActualizados} animales con fechas más antiguas.`;
+                    }
+
+                    // Reporte detallado para pesajes
+                    setReporteCarga({
+                        tipo: 'pesajes',
+                        creados: pesajesInsertados,
+                        actualizados: animalesIngresoActualizados,
+                        omitidos: omitidosDuplicados,
+                        omitidosList: [] // Para pesajes no mostramos la lista completa para no saturar el modal si hay miles
+                    });
+
                     setMsjExito(msg);
                     setShowExitoModal(true);
                     if (errores.length > 0) {
-                        setMsjError(`Se omitieron algunos registros:\n${errores.join('\n')}`);
+                        setMsjError(`Inconsistencias omitidas:\n${errores.join('\n')}`);
                         setShowErrorModal(true);
                     }
                 } catch (err: any) {
@@ -881,21 +966,64 @@ export default function Settings() {
             {/* Modal de Éxito para Cargas Masivas */}
             {showExitoModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
-                    <div className="card" style={{ maxWidth: '400px', width: '100%', textAlign: 'center', border: '1px solid var(--primary)', padding: '40px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-                            <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.1)', padding: '20px', borderRadius: '50%' }}>
-                                <CheckCircle2 size={60} color="var(--primary)" />
+                    <div className="card" style={{ maxWidth: '500px', width: '100%', textAlign: 'center', border: '1px solid var(--primary)', padding: '32px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                            <div style={{ backgroundColor: 'rgba(76, 175, 80, 0.1)', padding: '16px', borderRadius: '50%' }}>
+                                <CheckCircle2 size={48} color="var(--primary)" />
                             </div>
                         </div>
-                        <h2 style={{ marginBottom: '16px', color: 'white' }}>¡Importación Exitosa!</h2>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: '32px', fontSize: '1.1rem' }}>
+                        <h2 style={{ marginBottom: '8px', color: 'white' }}>¡Importación Finalizada!</h2>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>
                             {msjExito}
                         </p>
+
+                        {reporteCarga && (
+                            <div style={{ textAlign: 'left', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', padding: '20px', marginBottom: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <h4 style={{ color: 'var(--primary-light)', marginBottom: '16px', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Resumen de Operación</h4>
+                                
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ color: 'white', fontSize: '1.4rem', fontWeight: 'bold' }}>{reporteCarga.creados}</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>CREADOS</div>
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ color: 'white', fontSize: '1.4rem', fontWeight: 'bold' }}>{reporteCarga.actualizados}</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>ACTUALIZADOS</div>
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ color: '#ef5350', fontSize: '1.4rem', fontWeight: 'bold' }}>{reporteCarga.omitidos}</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>OMITIDOS</div>
+                                    </div>
+                                </div>
+
+                                {reporteCarga.omitidosList.length > 0 && (
+                                    <>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Chapetas omitidas (por duplicidad):</span>
+                                        </div>
+                                        <div style={{ 
+                                            backgroundColor: 'rgba(0,0,0,0.2)', 
+                                            padding: '10px', 
+                                            borderRadius: '8px', 
+                                            fontSize: '0.85rem', 
+                                            color: '#ef5350',
+                                            maxHeight: '100px',
+                                            overflowY: 'auto',
+                                            wordBreak: 'break-all',
+                                            lineHeight: '1.4'
+                                        }}>
+                                            {reporteCarga.omitidosList.join(', ')}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+
                         <button
-                            onClick={() => { setShowExitoModal(false); setMsjExito(''); }}
-                            style={{ backgroundColor: 'var(--primary)', padding: '12px 40px', fontSize: '1rem' }}
+                            onClick={() => { setShowExitoModal(false); setMsjExito(''); setReporteCarga(null); }}
+                            style={{ backgroundColor: 'var(--primary)', padding: '12px 40px', fontSize: '1rem', width: '100%' }}
                         >
-                            Entendido
+                            Cerrar Reporte
                         </button>
                     </div>
                 </div>
