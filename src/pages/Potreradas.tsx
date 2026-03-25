@@ -22,6 +22,8 @@ interface Potrerada {
     diasPesajePromedio: number;
     marcas: string[];
     id_rotacion: string | null;
+    rotacionNombre: string | null;
+    potreroActualNombre: string | null;
 }
 
 interface AnimalPotrero {
@@ -117,13 +119,32 @@ export default function Potreradas() {
 
             if (potsErr) throw potsErr;
 
-            // 1.5 Obtener rotaciones para los selectores
+            // 1.5 Obtener rotaciones para los selectores y nombre
             const { data: rotsData } = await supabase
                 .from('rotaciones')
                 .select('id, nombre')
                 .eq('id_finca', fincaId)
                 .order('nombre', { ascending: true });
             setRotaciones(rotsData || []);
+
+            // 1.6 Obtener potreros actuales de cada potrerada (último movimiento activo)
+            const { data: movimientos } = await supabase
+                .from('movimientos_potreros')
+                .select('id_potrerada, id_potrero, fecha_entrada, fecha_salida, potreros(nombre)')
+                .eq('id_finca', fincaId)
+                .is('fecha_salida', null)
+                .order('fecha_entrada', { ascending: false });
+
+            // Mapear potrerada_id → nombre del potrero actual
+            const potreroActualMap = new Map<string, string>();
+            (movimientos || []).forEach((m: any) => {
+                if (!potreroActualMap.has(m.id_potrerada)) {
+                    potreroActualMap.set(m.id_potrerada, m.potreros?.nombre || '');
+                }
+            });
+
+            // Mapear rotacion_id → nombre
+            const rotacionNombreMap = new Map((rotsData || []).map((r: any) => [r.id, r.nombre]));
 
             const { data: animals, error: animErr } = await supabase
                 .from('animales')
@@ -262,7 +283,9 @@ export default function Potreradas() {
                     gmpAcumulado: validGmpAccCount > 0 ? totalGmpAcc / validGmpAccCount : 0,
                     diasPesajePromedio: validDateCount > 0 ? totalDiasPesaje / validDateCount : 0,
                     marcas: Array.from(new Set(groupAnimals.map((a: any) => a.nombre_propietario).filter(Boolean))).sort() as string[],
-                    id_rotacion: p.id_rotacion
+                    id_rotacion: p.id_rotacion,
+                    rotacionNombre: p.id_rotacion ? (rotacionNombreMap.get(p.id_rotacion) || null) : null,
+                    potreroActualNombre: potreroActualMap.get(p.id) || null
                 };
             });
 
@@ -818,6 +841,7 @@ export default function Potreradas() {
                         <thead>
                             <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                 <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nombre Potrerada</th>
+                                <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Rotación / Potrero</th>
                                 <th style={{ padding: '16px 24px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Marcas</th>
                                 <th style={{ padding: '16px 24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Animales</th>
                                 <th className="mobile-hide" style={{ padding: '16px 24px', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peso Promedio</th>
@@ -839,6 +863,23 @@ export default function Potreradas() {
                                             <div style={{ fontWeight: 'bold', color: 'var(--primary-light)', fontSize: '1.1rem' }}>{p.nombre}</div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{p.etapa}</div>
                                         </div>
+                                    </td>
+                                    <td className="mobile-hide" style={{ padding: '16px 24px' }}>
+                                        {p.rotacionNombre ? (
+                                            <div>
+                                                <div style={{ fontWeight: '600', color: 'var(--text)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <MapPin size={12} color="var(--primary)" />
+                                                    {p.rotacionNombre}
+                                                </div>
+                                                {p.potreroActualNombre && (
+                                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', paddingLeft: '16px' }}>
+                                                        {p.potreroActualNombre}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.2)' }}>—</span>
+                                        )}
                                     </td>
                                     <td style={{ padding: '16px 24px' }}>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
