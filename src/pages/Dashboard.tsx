@@ -583,16 +583,12 @@ export default function Dashboard() {
                 const avgMesesLev = item.countLevante > 0 ? (item.sumDiasLevante / item.countLevante) / 30 : 0;
                 const avgMesesCeba = item.countCeba > 0 ? (item.sumDiasCeba / item.countCeba) / 30 : 0;
                 
-                // Usamos el mayor para mostrar un dato general de tiempo en el tooltip si solo hay una etapa
-                const avgMesesFinal = avgMesesLev > 0 && avgMesesCeba > 0 
-                    ? (avgMesesLev + avgMesesCeba) / 2
-                    : (avgMesesLev || avgMesesCeba);
-
                 return {
                     name: `P${num}`,
                     levante: item.countLevante > 0 ? parseFloat((item.sumLevante / item.countLevante).toFixed(1)) : 0,
                     ceba: item.countCeba > 0 ? parseFloat((item.sumCeba / item.countCeba).toFixed(1)) : 0,
-                    mesesPromedio: parseFloat(avgMesesFinal.toFixed(1))
+                    mesesLevante: parseFloat(avgMesesLev.toFixed(1)),
+                    mesesCeba: parseFloat(avgMesesCeba.toFixed(1))
                 };
             })
             .filter(d => d.levante > 0 || d.ceba > 0)
@@ -1027,9 +1023,20 @@ export default function Dashboard() {
                                                 const point = evolucionPorPesaje.find(d => d.name === label);
                                                 return (
                                                     <div style={{ paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '8px' }}>
-                                                        <div style={{ fontWeight: 'bold' }}>{label}</div>
-                                                        <div style={{ fontSize: '0.8rem', color: 'var(--primary-light)', marginTop: '4px' }}>
-                                                            Promedio: {point?.mesesPromedio} meses entre pesajes
+                                                        <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{label}</div>
+                                                        <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            {point && point.levante > 0 && (
+                                                                <div style={{ fontSize: '0.8rem', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--warning)' }}></div>
+                                                                    Intervalo Levante: {point.mesesLevante} meses
+                                                                </div>
+                                                            )}
+                                                            {point && point.ceba > 0 && (
+                                                                <div style={{ fontSize: '0.8rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }}></div>
+                                                                    Intervalo Ceba: {point.mesesCeba} meses
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 );
