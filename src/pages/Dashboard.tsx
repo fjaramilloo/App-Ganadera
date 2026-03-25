@@ -76,6 +76,7 @@ export default function Dashboard() {
         ubicacion: ''
     });
     const [evolucionGmp, setEvolucionGmp] = useState<EvolucionItem[]>([]);
+    const [evolucionPorPesaje, setEvolucionPorPesaje] = useState<any[]>([]);
     const [evolucionLluvia, setEvolucionLluvia] = useState<LluviaItem[]>([]);
     const [detailModalVisible, setDetailModalVisible] = useState(false);
     const [selectedDetail, setSelectedDetail] = useState<{
@@ -484,6 +485,14 @@ export default function Dashboard() {
             cebaDetalles: GmpDetailItem[];
         }> = {};
 
+        // Agrupar por Número de Pesaje (2, 3, 4...)
+        const agrupadoPorNum: Record<number, {
+            sumLevante: number,
+            countLevante: number,
+            sumCeba: number,
+            countCeba: number
+        }> = {};
+
         animalesFiltrados.forEach(animal => {
             const misPesajes = pesajesPorAnimal[animal.id];
             if (!misPesajes || misPesajes.length === 0) return;
@@ -494,22 +503,24 @@ export default function Dashboard() {
             let prevWeight = parseFloat(animal.peso_compra ?? animal.peso_ingreso);
             let prevDate = new Date(`${animal.fecha_ingreso}T01:00:00`);
             
-            ordenados.forEach((p: any) => {
+            ordenados.forEach((p: any, index: number) => {
+                const numPesaje = index + 2; // El primer pesaje registrado en la tabla es el #2 comparado con ingreso
                 const currentWeight = parseFloat(p.peso); 
-                const currentDateStr = p.fecha as string; // ej: 2026-03-14
+                const currentDateStr = p.fecha as string;
                 const currentDate = new Date(`${currentDateStr}T01:00:00`);
                 const diffDias = differenceInDays(currentDate, prevDate);
                 
                 if (diffDias > 0) {
                     const ganancia = currentWeight - prevWeight;
-                    let gdp = (p.gdp_calculada !== null && p.gdp_calculada !== undefined) ? Number(p.gdp_calculada) : (ganancia / diffDias);
+                    let gdp = (p.gdp_calculada !== null && p.gdp_calculada !== undefined && p.gdp_calculada !== 0) ? Number(p.gdp_calculada) : (ganancia / diffDias);
                     if (gdp === 0 && ganancia !== 0) {
                         gdp = ganancia / diffDias;
                     }
                     const gmpVal = gdp * 30;
-                    
+
+                    // 1. Agrupar para gráfica Mensual
                     const sortKey = currentDateStr.substring(0, 7); // YYYY-MM
-                    const labelMes = format(currentDate, 'MMM yy', { locale: es }).replace(/^\w/, c => c.toUpperCase()); // Ene 26
+                    const labelMes = format(currentDate, 'MMM yy', { locale: es }).replace(/^\w/, c => c.toUpperCase());
                     
                     if (!agrupadoPorMes[sortKey]) {
                         agrupadoPorMes[sortKey] = {
@@ -519,6 +530,11 @@ export default function Dashboard() {
                             cebaSum: 0, cebaCount: 0,
                             levanteDetalles: [], cebaDetalles: []
                         };
+                    }
+
+                    // 2. Agrupar para gráfica por Número de Pesaje
+                    if (!agrupadoPorNum[numPesaje]) {
+                        agrupadoPorNum[numPesaje] = { sumLevante: 0, countLevante: 0, sumCeba: 0, countCeba: 0 };
                     }
 
                     const detail: GmpDetailItem = {
@@ -536,10 +552,16 @@ export default function Dashboard() {
                         agrupadoPorMes[sortKey].levanteSum += gmpVal;
                         agrupadoPorMes[sortKey].levanteCount++;
                         agrupadoPorMes[sortKey].levanteDetalles.push(detail);
+                        
+                        agrupadoPorNum[numPesaje].sumLevante += gmpVal;
+                        agrupadoPorNum[numPesaje].countLevante++;
                     } else {
                         agrupadoPorMes[sortKey].cebaSum += gmpVal;
                         agrupadoPorMes[sortKey].cebaCount++;
                         agrupadoPorMes[sortKey].cebaDetalles.push(detail);
+
+                        agrupadoPorNum[numPesaje].sumCeba += gmpVal;
+                        agrupadoPorNum[numPesaje].countCeba++;
                     }
                 }
                 
@@ -547,6 +569,23 @@ export default function Dashboard() {
                 prevDate = currentDate;
             });
         });
+
+        // Procesar gráfica de Número de Pesaje
+        const dataPorNum = Object.keys(agrupadoPorNum)
+            .map(k => parseInt(k))
+            .sort((a,b) => a - b)
+            .map(num => {
+                const item = agrupadoPorNum[num];
+                return {
+                    name: `P${num}`,
+                    levante: item.countLevante > 0 ? parseFloat((item.sumLevante / item.countLevante).toFixed(1)) : 0,
+                    ceba: item.countCeba > 0 ? parseFloat((item.sumCeba / item.countCeba).toFixed(1)) : 0
+                };
+            })
+            .filter(d => d.levante > 0 || d.ceba > 0)
+            .slice(0, 15); // Mostrar máximo 15 pesajes para no saturar 
+
+        setEvolucionPorPesaje(dataPorNum);
 
         const sortedKeys = Object.keys(agrupadoPorMes).sort(); // Sorts by YYYY-MM
         
@@ -912,6 +951,69 @@ export default function Dashboard() {
 
                     {/* Gráficas */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '24px' }}>
+                        {/* Nueva Gráfica: GMP por Número de Pesaje */}
+                        <div className="card" style={{ padding: '24px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Promedio GMP frente a Nro Pesaje</h3>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>Rendimiento promedio según el número de veces que el animal ha sido pesaje en la finca.</p>
+                                </div>
+                                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px', width: 'fit-content' }}>
+                                    <button 
+                                        onClick={() => setFilterTipo('actual')}
+                                        style={{ 
+                                            padding: '6px 16px', 
+                                            fontSize: '0.85rem', 
+                                            background: filterTipo === 'actual' ? 'var(--primary)' : 'transparent',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            color: filterTipo === 'actual' ? 'white' : 'var(--text-muted)',
+                                            cursor: 'pointer'
+                                        }}
+                                    >Activos</button>
+                                    <button 
+                                        onClick={() => setFilterTipo('historico')}
+                                        style={{ 
+                                            padding: '6px 16px', 
+                                            fontSize: '0.85rem', 
+                                            background: filterTipo === 'historico' ? 'var(--primary)' : 'transparent',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            color: filterTipo === 'historico' ? 'white' : 'var(--text-muted)',
+                                            cursor: 'pointer'
+                                        }}
+                                    >Histórico</button>
+                                </div>
+                            </div>
+                            <div style={{ width: '100%', height: '350px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={evolucionPorPesaje} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                        <XAxis
+                                            dataKey="name"
+                                            stroke="var(--text-muted)"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                                        />
+                                        <YAxis
+                                            stroke="var(--text-muted)"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                                            unit=" kg"
+                                        />
+                                        <Tooltip
+                                            cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                                            contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }}
+                                        />
+                                        <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                                        <Bar name="Levante" dataKey="levante" fill="var(--warning)" radius={[4, 4, 0, 0]} barSize={35} />
+                                        <Bar name="Ceba" dataKey="ceba" fill="var(--success)" radius={[4, 4, 0, 0]} barSize={35} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
                         <div className="card" style={{ padding: '24px' }}>
                             <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                                 <div>
