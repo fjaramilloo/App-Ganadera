@@ -698,7 +698,7 @@ export default function Settings() {
                         .select('id_animal, fecha, peso')
                         .in('id_animal', idsAnimalesEnCSV);
                     
-                    if (errPesajes) throw new Error("Error verificando duplicados de pesaje");
+                    if (errPesajes) throw new Error(`Error verificando duplicados de pesaje: ${errPesajes.message}`);
 
                     const setDuplicados = new Set(pesajesExistentes?.map(p => `${p.id_animal}|${p.fecha}|${p.peso}`));
 
