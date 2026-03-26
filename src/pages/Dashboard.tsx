@@ -77,6 +77,8 @@ export default function Dashboard() {
     });
     const [evolucionGmp, setEvolucionGmp] = useState<EvolucionItem[]>([]);
     const [evolucionPorPesaje, setEvolucionPorPesaje] = useState<any[]>([]);
+    const [evolucionPorRango, setEvolucionPorRango] = useState<any[]>([]);
+    const [vistaGrafica, setVistaGrafica] = useState<'mensual' | 'pesaje' | 'rango'>('mensual');
     const [evolucionLluvia, setEvolucionLluvia] = useState<LluviaItem[]>([]);
     const [detailModalVisible, setDetailModalVisible] = useState(false);
     const [selectedDetail, setSelectedDetail] = useState<{
@@ -485,6 +487,14 @@ export default function Dashboard() {
             cebaDetalles: GmpDetailItem[];
         }> = {};
 
+        // Agrupar por Rango de Peso
+        const agrupadoPorRango: Record<string, { sum: number, count: number, sumDias: number }> = {
+            'rango1': { sum: 0, count: 0, sumDias: 0 }, // < 400
+            'rango2': { sum: 0, count: 0, sumDias: 0 }, // 401 - 480
+            'rango3': { sum: 0, count: 0, sumDias: 0 }, // 481 - 530
+            'rango4': { sum: 0, count: 0, sumDias: 0 }, // > 531
+        };
+
         // Agrupar por Número de Pesaje (2, 3, 4...)
         const agrupadoPorNum: Record<number, {
             sumLevante: number,
@@ -567,6 +577,18 @@ export default function Dashboard() {
                         agrupadoPorNum[numPesaje].countCeba++;
                         agrupadoPorNum[numPesaje].sumDiasCeba += diffDias;
                     }
+
+                    // 3. Agrupar por Rango de Peso (Tomamos el peso al INICIO del intervalo)
+                    const pesoRef = prevWeight;
+                    let targetRango = '';
+                    if (pesoRef <= 400) targetRango = 'rango1';
+                    else if (pesoRef <= 480) targetRango = 'rango2';
+                    else if (pesoRef <= 530) targetRango = 'rango3';
+                    else targetRango = 'rango4';
+
+                    agrupadoPorRango[targetRango].sum += gmpVal;
+                    agrupadoPorRango[targetRango].count++;
+                    agrupadoPorRango[targetRango].sumDias += diffDias;
                 }
                 
                 prevWeight = currentWeight;
@@ -595,6 +617,20 @@ export default function Dashboard() {
             .slice(0, 15); // Mostrar máximo 15 pesajes para no saturar 
 
         setEvolucionPorPesaje(dataPorNum);
+
+        // 4. Procesar gráfica de Rangos de Peso
+        const dataPorRango = [
+            { name: '< 400 kg', ...agrupadoPorRango.rango1 },
+            { name: '401 - 480 kg', ...agrupadoPorRango.rango2 },
+            { name: '481 - 530 kg', ...agrupadoPorRango.rango3 },
+            { name: '> 531 kg', ...agrupadoPorRango.rango4 },
+        ].map(r => ({
+            name: r.name,
+            gmp: r.count > 0 ? parseFloat((r.sum / r.count).toFixed(1)) : 0,
+            meses: r.count > 0 ? parseFloat(((r.sumDias / r.count) / 30).toFixed(1)) : 0
+        }));
+
+        setEvolucionPorRango(dataPorRango);
 
         const sortedKeys = Object.keys(agrupadoPorMes).sort(); // Sorts by YYYY-MM
         
@@ -958,206 +994,152 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    {/* Gráficas */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '24px' }}>
-                        {/* Nueva Gráfica: GMP por Número de Pesaje */}
-                        <div className="card" style={{ padding: '24px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                    {/* Centro de Análisis de Rendimiento (Gráfica Unificada) */}
+                    <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: '32px' }}>
+                        {/* Cabecera con Selectores */}
+                        <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Promedio GMP frente a Nro Pesaje</h3>
-                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>Rendimiento promedio según el número de veces que el animal ha sido pesaje en la finca.</p>
+                                    <h3 style={{ margin: 0, fontSize: '1.4rem', color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <TrendingUp size={24} color="var(--primary)" />
+                                        Análisis de Rendimiento Ganadero
+                                    </h3>
+                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
+                                        {vistaGrafica === 'mensual' && 'Evolución cronológica del promedio de ganancia por mes.'}
+                                        {vistaGrafica === 'pesaje' && 'Eficiencia según el número de pesajes realizados al lote.'}
+                                        {vistaGrafica === 'rango' && 'Productividad segmentada por rangos de peso fisiológicos.'}
+                                    </p>
                                 </div>
-                                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px', width: 'fit-content' }}>
+                                <div style={{ display: 'flex', gap: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '4px' }}>
                                     <button 
                                         onClick={() => setFilterTipo('actual')}
-                                        style={{ 
-                                            padding: '6px 16px', 
-                                            fontSize: '0.85rem', 
-                                            background: filterTipo === 'actual' ? 'var(--primary)' : 'transparent',
-                                            border: 'none',
-                                            borderRadius: '6px',
-                                            color: filterTipo === 'actual' ? 'white' : 'var(--text-muted)',
-                                            cursor: 'pointer'
-                                        }}
+                                        className={`btn-toggle ${filterTipo === 'actual' ? 'active' : ''}`}
+                                        style={{ padding: '8px 16px', fontSize: '0.85rem' }}
                                     >Activos</button>
                                     <button 
                                         onClick={() => setFilterTipo('historico')}
-                                        style={{ 
-                                            padding: '6px 16px', 
-                                            fontSize: '0.85rem', 
-                                            background: filterTipo === 'historico' ? 'var(--primary)' : 'transparent',
-                                            border: 'none',
-                                            borderRadius: '6px',
-                                            color: filterTipo === 'historico' ? 'white' : 'var(--text-muted)',
-                                            cursor: 'pointer'
-                                        }}
+                                        className={`btn-toggle ${filterTipo === 'historico' ? 'active' : ''}`}
+                                        style={{ padding: '8px 16px', fontSize: '0.85rem' }}
                                     >Histórico</button>
                                 </div>
                             </div>
-                            <div style={{ width: '100%', height: '350px' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={evolucionPorPesaje} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                        <XAxis
-                                            dataKey="name"
-                                            stroke="var(--text-muted)"
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-                                        />
-                                        <YAxis
-                                            stroke="var(--text-muted)"
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-                                            unit=" kg"
-                                        />
-                                        <Tooltip
-                                            cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
-                                            contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }}
-                                            formatter={(value: any, name: any) => {
-                                                if (name === 'Levante' || name === 'Ceba') return [`${value} kg/mes`, name];
-                                                return [value, name];
-                                            }}
-                                            labelFormatter={(label) => {
-                                                const point = evolucionPorPesaje.find(d => d.name === label);
-                                                return (
-                                                    <div style={{ paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '8px' }}>
-                                                        <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{label}</div>
-                                                        <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                            {point && point.levante > 0 && (
-                                                                <div style={{ fontSize: '0.8rem', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--warning)' }}></div>
-                                                                    Intervalo Levante: {point.mesesLevante} meses
-                                                                </div>
-                                                            )}
-                                                            {point && point.ceba > 0 && (
-                                                                <div style={{ fontSize: '0.8rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }}></div>
-                                                                    Intervalo Ceba: {point.mesesCeba} meses
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            }}
-                                        />
-                                        <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                                        <Bar name="Levante" dataKey="levante" fill="var(--warning)" radius={[4, 4, 0, 0]} barSize={35} />
-                                        <Bar name="Ceba" dataKey="ceba" fill="var(--success)" radius={[4, 4, 0, 0]} barSize={35} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                        <div className="card" style={{ padding: '24px' }}>
-                            <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>Desempeño Histórico de GMP (Mensual)</h3>
-                                    
-                                    <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '4px', marginTop: '12px', width: 'fit-content' }}>
-                                        <button 
-                                            onClick={() => setFilterTipo('actual')}
-                                            style={{ 
-                                                padding: '6px 16px', 
-                                                fontSize: '0.85rem', 
-                                                background: filterTipo === 'actual' ? 'var(--primary)' : 'transparent',
-                                                border: 'none',
-                                                color: filterTipo === 'actual' ? 'white' : 'var(--text-muted)'
-                                            }}
-                                        >
-                                            Actual (Activos)
-                                        </button>
-                                        <button 
-                                            onClick={() => setFilterTipo('historico')}
-                                            style={{ 
-                                                padding: '6px 16px', 
-                                                fontSize: '0.85rem', 
-                                                background: filterTipo === 'historico' ? 'var(--primary)' : 'transparent',
-                                                border: 'none',
-                                                color: filterTipo === 'historico' ? 'white' : 'var(--text-muted)'
-                                            }}
-                                        >
-                                            Histórico (Todos)
-                                        </button>
-                                    </div>
 
-                                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '12px' }}>Evolución cronológica del promedio de ganancia de los animales (Levante vs Ceba)</p>
-                                </div>
+                            {/* Selector de Tipo de Gráfica (Tabs) */}
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '24px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px' }}>
+                                <button 
+                                    onClick={() => setVistaGrafica('mensual')}
+                                    style={{ 
+                                        flex: 1, padding: '12px', borderRadius: '10px', transition: 'all 0.2s',
+                                        background: vistaGrafica === 'mensual' ? 'rgba(76, 175, 80, 0.15)' : 'transparent',
+                                        border: '1px solid',
+                                        borderColor: vistaGrafica === 'mensual' ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                        color: vistaGrafica === 'mensual' ? 'var(--primary-light)' : 'var(--text-muted)',
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: vistaGrafica === 'mensual' ? 'bold' : 'normal'
+                                    }}
+                                >
+                                    📅 Evolución Mensual
+                                </button>
+                                <button 
+                                    onClick={() => setVistaGrafica('pesaje')}
+                                    style={{ 
+                                        flex: 1, padding: '12px', borderRadius: '10px', transition: 'all 0.2s',
+                                        background: vistaGrafica === 'pesaje' ? 'rgba(76, 175, 80, 0.15)' : 'transparent',
+                                        border: '1px solid',
+                                        borderColor: vistaGrafica === 'pesaje' ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                        color: vistaGrafica === 'pesaje' ? 'var(--primary-light)' : 'var(--text-muted)',
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: vistaGrafica === 'pesaje' ? 'bold' : 'normal'
+                                    }}
+                                >
+                                    ⚖️ Por Nro Pesaje
+                                </button>
+                                <button 
+                                    onClick={() => setVistaGrafica('rango')}
+                                    style={{ 
+                                        flex: 1, padding: '12px', borderRadius: '10px', transition: 'all 0.2s',
+                                        background: vistaGrafica === 'rango' ? 'rgba(76, 175, 80, 0.15)' : 'transparent',
+                                        border: '1px solid',
+                                        borderColor: vistaGrafica === 'rango' ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                        color: vistaGrafica === 'rango' ? 'var(--primary-light)' : 'var(--text-muted)',
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: vistaGrafica === 'rango' ? 'bold' : 'normal'
+                                    }}
+                                >
+                                    📊 Por Rango de Peso
+                                </button>
                             </div>
-                            <div style={{ width: '100%', height: '350px' }}>
+                        </div>
+
+                        {/* Cuerpo de la Gráfica */}
+                        <div style={{ padding: '32px', minHeight: '400px' }}>
+                            <div style={{ width: '100%', height: '400px' }}>
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={evolucionGmp} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                        <ReferenceLine y={0} stroke="rgba(255,255,255,0.4)" strokeDasharray="4 4" />
-                                        <XAxis
-                                            dataKey="label"
-                                            stroke="var(--text-muted)"
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-                                        />
-                                        <YAxis
-                                            stroke="var(--text-muted)"
-                                            axisLine={false}
-                                            tickLine={false}
-                                            tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-                                            unit=" kg"
-                                        />
-                                        <Tooltip
-                                            contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }}
-                                            itemStyle={{ fontSize: '0.9rem' }}
-                                        />
-                                        <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                                        <Line
-                                            type="monotone"
-                                            name="GMP Levante"
-                                            dataKey="gmpLevante"
-                                            stroke="var(--warning)"
-                                            strokeWidth={4}
-                                            dot={{ r: 6, fill: '#ff9800', stroke: 'white', strokeWidth: 2, cursor: 'pointer' }}
-                                            activeDot={{ 
-                                                r: 8, 
-                                                onClick: (_e: any, payload: any) => {
-                                                    const num = payload.payload.numero;
-                                                    setSelectedDetail({
-                                                        label: payload.payload.label,
-                                                        etapa: 'Levante',
-                                                        items: detallesGmpAgrupados.levante[num] || []
-                                                    });
-                                                    setDetailModalVisible(true);
-                                                    setSortCol('gmp');
-                                                    setSortOrder('asc');
-                                                }
-                                            }}
-                                            connectNulls
-                                        />
-                                        <Line
-                                            type="monotone"
-                                            name="GMP Ceba"
-                                            dataKey="gmpCeba"
-                                            stroke="var(--success)"
-                                            strokeWidth={4}
-                                            dot={{ r: 6, fill: '#4caf50', stroke: 'white', strokeWidth: 2, cursor: 'pointer' }}
-                                            activeDot={{ 
-                                                r: 8, 
-                                                onClick: (_e: any, payload: any) => {
-                                                    const num = payload.payload.numero;
-                                                    setSelectedDetail({
-                                                        label: payload.payload.label,
-                                                        etapa: 'Ceba',
-                                                        items: detallesGmpAgrupados.ceba[num] || []
-                                                    });
-                                                    setDetailModalVisible(true);
-                                                    setSortCol('gmp');
-                                                    setSortOrder('asc');
-                                                }
-                                            }}
-                                            connectNulls
-                                        />
-                                    </LineChart>
+                                    {vistaGrafica === 'mensual' ? (
+                                        <LineChart data={evolucionGmp} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                            <ReferenceLine y={0} stroke="rgba(255,255,255,0.4)" strokeDasharray="4 4" />
+                                            <XAxis dataKey="label" stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
+                                            <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} unit=" kg" />
+                                            <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }} />
+                                            <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                                            <Line type="monotone" name="GMP Levante" dataKey="gmpLevante" stroke="var(--warning)" strokeWidth={4} dot={{ r: 6, fill: '#ff9800', stroke: 'white', strokeWidth: 2 }} connectNulls />
+                                            <Line type="monotone" name="GMP Ceba" dataKey="gmpCeba" stroke="var(--success)" strokeWidth={4} dot={{ r: 6, fill: '#4caf50', stroke: 'white', strokeWidth: 2 }} connectNulls />
+                                        </LineChart>
+                                    ) : vistaGrafica === 'pesaje' ? (
+                                        <BarChart data={evolucionPorPesaje} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                            <XAxis dataKey="name" stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
+                                            <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} unit=" kg" />
+                                            <Tooltip
+                                                cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                                                contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }}
+                                                formatter={(value: any, name: any) => [`${value} kg/mes`, name]}
+                                                labelFormatter={(label) => {
+                                                    const point = evolucionPorPesaje.find(d => d.name === label);
+                                                    return (
+                                                        <div style={{ paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '8px' }}>
+                                                            <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{label}</div>
+                                                            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                {point && point.levante > 0 && <div style={{ fontSize: '0.8rem', color: 'var(--warning)' }}>Intervalo Levante: {point.mesesLevante} meses</div>}
+                                                                {point && point.ceba > 0 && <div style={{ fontSize: '0.8rem', color: 'var(--success)' }}>Intervalo Ceba: {point.mesesCeba} meses</div>}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }}
+                                            />
+                                            <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                                            <Bar name="Levante" dataKey="levante" fill="var(--warning)" radius={[4, 4, 0, 0]} barSize={35} />
+                                            <Bar name="Ceba" dataKey="ceba" fill="var(--success)" radius={[4, 4, 0, 0]} barSize={35} />
+                                        </BarChart>
+                                    ) : (
+                                        <BarChart data={evolucionPorRango} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                            <XAxis dataKey="name" stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
+                                            <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} unit=" kg" />
+                                            <Tooltip
+                                                cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                                                contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }}
+                                                formatter={(value: any) => [`${value} kg/mes`, 'GMP']}
+                                                labelFormatter={(label) => {
+                                                    const point = evolucionPorRango.find(d => d.name === label);
+                                                    return (
+                                                        <div style={{ paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '8px' }}>
+                                                            <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>Rango: {label}</div>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--primary-light)', marginTop: '4px' }}>
+                                                                Intervalo medio: {point?.meses} meses
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }}
+                                            />
+                                            <Bar name="GMP" dataKey="gmp" fill="var(--primary)" radius={[4, 4, 0, 0]} barSize={45} label={{ position: 'top', fill: 'white', fontSize: 12 }} />
+                                        </BarChart>
+                                    )}
                                 </ResponsiveContainer>
                             </div>
                         </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '24px' }}>
+                        {/* Se eliminaron las gráficas individuales para usar la tarjeta unificada arriba */}
 
                         <div className="card" style={{ padding: '24px' }}>
                             <div style={{ marginBottom: '24px' }}>
