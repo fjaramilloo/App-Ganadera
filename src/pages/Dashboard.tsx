@@ -505,6 +505,33 @@ export default function Dashboard() {
             sumDiasCeba: number
         }> = {};
 
+        let totalGmpLevante = 0, countGmpLevante = 0;
+        let totalGmpCeba = 0, countGmpCeba = 0;
+
+        // Primero calcularemos los promedios reales de la finca para usarlos como fallback
+        animalesFiltrados.forEach(animal => {
+            const misPesajes = pesajesPorAnimal[animal.id];
+            if (misPesajes && misPesajes.length > 0) {
+                const ordenados = [...misPesajes].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+                const ultimo = ordenados[ordenados.length - 1];
+                const gmpVal = Number(ultimo.gmp_calculada || 0) * 30;
+                
+                if (gmpVal > 0) {
+                    if (ultimo.etapa === 'levante') {
+                        totalGmpLevante += gmpVal;
+                        countGmpLevante++;
+                    } else {
+                        totalGmpCeba += gmpVal;
+                        countGmpCeba++;
+                    }
+                }
+            }
+        });
+
+        const fallbackGmpLevante = countGmpLevante > 0 ? (totalGmpLevante / countGmpLevante) : 13.5;
+        const fallbackGmpCeba = countGmpCeba > 0 ? (totalGmpCeba / countGmpCeba) : 15.0;
+
+        // Ahora procesamos todos los datos con los fallbacks reales
         animalesFiltrados.forEach(animal => {
             const misPesajes = pesajesPorAnimal[animal.id];
             if (!misPesajes || misPesajes.length === 0) return;
