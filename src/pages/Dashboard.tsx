@@ -505,33 +505,6 @@ export default function Dashboard() {
             sumDiasCeba: number
         }> = {};
 
-        let totalGmpLevante = 0, countGmpLevante = 0;
-        let totalGmpCeba = 0, countGmpCeba = 0;
-
-        // Primero calcularemos los promedios reales de la finca para usarlos como fallback
-        animalesFiltrados.forEach(animal => {
-            const misPesajes = pesajesPorAnimal[animal.id];
-            if (misPesajes && misPesajes.length > 0) {
-                const ordenados = [...misPesajes].sort((a,b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-                const ultimo = ordenados[ordenados.length - 1];
-                const gmpVal = Number(ultimo.gmp_calculada || 0) * 30;
-                
-                if (gmpVal > 0) {
-                    if (ultimo.etapa === 'levante') {
-                        totalGmpLevante += gmpVal;
-                        countGmpLevante++;
-                    } else {
-                        totalGmpCeba += gmpVal;
-                        countGmpCeba++;
-                    }
-                }
-            }
-        });
-
-        const fallbackGmpLevante = countGmpLevante > 0 ? (totalGmpLevante / countGmpLevante) : 13.5;
-        const fallbackGmpCeba = countGmpCeba > 0 ? (totalGmpCeba / countGmpCeba) : 15.0;
-
-        // Ahora procesamos todos los datos con los fallbacks reales
         animalesFiltrados.forEach(animal => {
             const misPesajes = pesajesPorAnimal[animal.id];
             if (!misPesajes || misPesajes.length === 0) return;
@@ -644,41 +617,6 @@ export default function Dashboard() {
             .slice(0, 15); // Mostrar máximo 15 pesajes para no saturar 
 
         setEvolucionPorPesaje(dataPorNum);
-
-        // --- CÁLCULO DE DISTRIBUCIÓN POR PESO PROYECTADO ---
-        // Usando los promedios reales de la finca (Fallbacks)
-        const distPesos = { rango1: 0, rango2: 0, rango3: 0, rango4: 0 };
-        const distAnimales: { rango1: any[], rango2: any[], rango3: any[], rango4: any[] } = { rango1: [], rango2: [], rango3: [], rango4: [] };
-
-        animalesFiltrados.forEach(animal => {
-            const misPsjs = pesajesPorAnimal[animal.id] || [];
-            const lastWeight = misPsjs.length > 0 ? misPsjs[misPsjs.length - 1].weight || misPsjs[misPsjs.length - 1].peso : (animal.peso_compra ?? animal.peso_ingreso);
-            const lastDate = misPsjs.length > 0 ? new Date(misPsjs[misPsjs.length - 1].fecha) : new Date(animal.fecha_ingreso);
-            
-            const gmpBase = animal.gmp_actual && Number(animal.gmp_actual) > 0 
-                            ? Number(animal.gmp_actual) * 30 
-                            : (animal.etapa_comercial === 'Ceba' ? fallbackGmpCeba : fallbackGmpLevante);
-            
-            const diasUltimoPesaje = differenceInDays(new Date(), lastDate);
-            const pesoHoy = lastWeight + (gmpBase / 30) * diasUltimoPesaje;
-
-            if (pesoHoy < 430) {
-                distPesos.rango1++;
-                distAnimales.rango1.push({ ...animal, ultimoPeso: lastWeight, pesoEstimado: pesoHoy, potrerada: animal.potreradas?.nombre || 'Sin Potrerada' });
-            } else if (pesoHoy <= 480) {
-                distPesos.rango2++;
-                distAnimales.rango2.push({ ...animal, ultimoPeso: lastWeight, pesoEstimado: pesoHoy, potrerada: animal.potreradas?.nombre || 'Sin Potrerada' });
-            } else if (pesoHoy <= 530) {
-                distPesos.rango3++;
-                distAnimales.rango3.push({ ...animal, ultimoPeso: lastWeight, pesoEstimado: pesoHoy, potrerada: animal.potreradas?.nombre || 'Sin Potrerada' });
-            } else {
-                distPesos.rango4++;
-                distAnimales.rango4.push({ ...animal, ultimoPeso: lastWeight, pesoEstimado: pesoHoy, potrerada: animal.potreradas?.nombre || 'Sin Potrerada' });
-            }
-        });
-
-        setDistribucionPesos(distPesos);
-        setAnimalesPorRango(distAnimales);
 
         // 4. Procesar gráfica de Rangos de Peso
         const dataPorRango = [
