@@ -1080,8 +1080,52 @@ export default function Dashboard() {
                                             <YAxis stroke="var(--text-muted)" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} unit=" kg" />
                                             <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white' }} />
                                             <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                                            <Line type="monotone" name="GMP Levante" dataKey="gmpLevante" stroke="var(--warning)" strokeWidth={4} dot={{ r: 6, fill: '#ff9800', stroke: 'white', strokeWidth: 2 }} connectNulls />
-                                            <Line type="monotone" name="GMP Ceba" dataKey="gmpCeba" stroke="var(--success)" strokeWidth={4} dot={{ r: 6, fill: '#4caf50', stroke: 'white', strokeWidth: 2 }} connectNulls />
+                                            <Line 
+                                                type="monotone" 
+                                                name="GMP Levante" 
+                                                dataKey="gmpLevante" 
+                                                stroke="var(--warning)" 
+                                                strokeWidth={4} 
+                                                dot={{ r: 6, fill: '#ff9800', stroke: 'white', strokeWidth: 2, cursor: 'pointer' }}
+                                                activeDot={{ 
+                                                    r: 8, 
+                                                    onClick: (_e: any, payload: any) => {
+                                                        const num = payload.payload.numero;
+                                                        setSelectedDetail({
+                                                            label: payload.payload.label,
+                                                            etapa: 'Levante',
+                                                            items: detallesGmpAgrupados.levante[num] || []
+                                                        });
+                                                        setDetailModalVisible(true);
+                                                        setSortCol('gmp');
+                                                        setSortOrder('asc');
+                                                    }
+                                                }}
+                                                connectNulls 
+                                            />
+                                            <Line 
+                                                type="monotone" 
+                                                name="GMP Ceba" 
+                                                dataKey="gmpCeba" 
+                                                stroke="var(--success)" 
+                                                strokeWidth={4} 
+                                                dot={{ r: 6, fill: '#4caf50', stroke: 'white', strokeWidth: 2, cursor: 'pointer' }} 
+                                                activeDot={{ 
+                                                    r: 8, 
+                                                    onClick: (_e: any, payload: any) => {
+                                                        const num = payload.payload.numero;
+                                                        setSelectedDetail({
+                                                            label: payload.payload.label,
+                                                            etapa: 'Ceba',
+                                                            items: detallesGmpAgrupados.ceba[num] || []
+                                                        });
+                                                        setDetailModalVisible(true);
+                                                        setSortCol('gmp');
+                                                        setSortOrder('asc');
+                                                    }
+                                                }}
+                                                connectNulls 
+                                            />
                                         </LineChart>
                                     ) : vistaGrafica === 'pesaje' ? (
                                         <BarChart data={evolucionPorPesaje} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
